@@ -10,7 +10,7 @@ export default function BottomNav({ pathname }: { pathname: string }) {
   const router = useRouter();
 
   function handleNavClick(e: React.MouseEvent, href: string, requiresAuth: boolean) {
-    if (requiresAuth && auth.phase !== "in") {
+    if (requiresAuth && auth.phase === "out") {
       e.preventDefault();
       router.push("/login");
     }
