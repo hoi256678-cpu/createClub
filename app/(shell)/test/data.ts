@@ -69,8 +69,8 @@ export const TEST_DATA: Record<TestType, TestDef> = {
       "나는 긍정적인 마음으로 나를 대한다.",
     ],
     getResult(score) {
-      if (score >= 34) return { label: "높은 자존감", desc: "자신을 가치 있게 여기고 긍정적인 자아상을 가지고 있어요 😊", color: "#50D9A0" };
-      if (score >= 25) return { label: "보통 자존감", desc: "평균적인 수준의 자존감을 갖고 있어요. 스스로를 더 인정해주면 좋을 것 같아요.", color: "#F5C842" };
+      if (score >= 24) return { label: "높은 자존감", desc: "자신을 가치 있게 여기고 긍정적인 자아상을 가지고 있어요 😊", color: "#50D9A0" };
+      if (score >= 15) return { label: "보통 자존감", desc: "평균적인 수준의 자존감을 갖고 있어요. 스스로를 더 인정해주면 좋을 것 같아요.", color: "#F5C842" };
       return { label: "낮은 자존감", desc: "자존감이 낮을 수 있어요. 상담을 통해 자신을 더 사랑하는 방법을 찾아보세요 💙", color: "#9EB9E6" };
     },
   },

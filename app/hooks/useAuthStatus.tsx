@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import { apiFetch } from "@/lib/api";
 
 export type AuthState =
@@ -8,7 +16,11 @@ export type AuthState =
   | { phase: "out" }
   | { phase: "in"; name: string; role: "counselor" | "client" };
 
-export function useAuthStatus(): readonly [AuthState, Dispatch<SetStateAction<AuthState>>] {
+type AuthContextValue = readonly [AuthState, Dispatch<SetStateAction<AuthState>>];
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ phase: "loading" });
 
   useEffect(() => {
@@ -32,5 +44,17 @@ export function useAuthStatus(): readonly [AuthState, Dispatch<SetStateAction<Au
     };
   }, []);
 
-  return [state, setState] as const;
+  return (
+    <AuthContext.Provider value={[state, setState] as const}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuthStatus(): readonly [AuthState, Dispatch<SetStateAction<AuthState>>] {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuthStatus must be used within an AuthProvider");
+  }
+  return ctx;
 }
