@@ -2,14 +2,18 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
+const authRouter = require("./routes/auth");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
-app.use(cors({ origin: FRONTEND_URL }));
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
 
 app.get("/api/health", (req, res) => {
   const mongoConnected = mongoose.connection.readyState === 1;
@@ -19,6 +23,8 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use("/api/auth", authRouter);
 
 async function start() {
   if (!MONGODB_URI) {
@@ -37,4 +43,8 @@ async function start() {
   });
 }
 
-start();
+if (require.main === module) {
+  start();
+}
+
+module.exports = app;
