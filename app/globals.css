@@ -1,67 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #0f1226;
-  --ink-2: #171b3a;
-  --line: #2a2f55;
-  --paper: #f6f4ee;
-  --muted: #9ca3c9;
-  --accent: #ff7a45;
-  --accent-2: #ffc857;
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --border: #e8edf4;
+  --primary: #9eb9e6;
+  --primary-dark: #7a9cc5;
+  --primary-darker: #5a7ca8;
+  --primary-light: #eef5fd;
+  --primary-xlight: #f5f9ff;
+  --text: #1a2540;
+  --text-2: #2d3a52;
+  --text-muted: #7a8ba8;
+  --text-faint: #b0bccf;
+  --danger: #e05252;
+  --success: #3db8a0;
+  --shadow-card-value: 0 2px 16px rgba(60, 90, 140, 0.08);
+  --shadow-card-md-value: 0 4px 32px rgba(60, 90, 140, 0.13);
 }
 
 @theme inline {
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-line: var(--line);
-  --color-paper: var(--paper);
-  --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --color-accent-2: var(--accent-2);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-fraunces);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-darker: var(--primary-darker);
+  --color-primary-light: var(--primary-light);
+  --color-primary-xlight: var(--primary-xlight);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --shadow-card: var(--shadow-card-value);
+  --shadow-card-md: var(--shadow-card-md-value);
+  --breakpoint-shell: 900px;
+  --font-sans: var(--font-suit);
+  --font-display: var(--font-suit);
 }
 
 body {
-  background: var(--ink);
-  color: var(--paper);
-}
-
-@keyframes blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgb(255 122 69 / 0.45);
-  }
-  50% {
-    opacity: 0.75;
-    box-shadow: 0 0 0 6px rgb(255 122 69 / 0);
-  }
-}
-
-.cursor-blink {
-  animation: blink 1.1s step-end infinite;
-}
-
-.status-dot {
-  animation: pulse-dot 2.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cursor-blink,
-  .status-dot {
-    animation: none;
-  }
+  background: var(--bg);
+  color: var(--text-2);
 }
