@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## 배포 현황 (솜잇 과제 산출물)
+
+- 프론트엔드 (Vercel): https://create-club-5kro.vercel.app
+- 백엔드 (Railway): https://createclub-production.up.railway.app
+- DB: MongoDB Atlas M0 Free Tier (백엔드를 통해서만 접근, `/api/health`로 연결 상태 확인 가능)
