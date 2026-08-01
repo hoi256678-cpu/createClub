@@ -1,4 +1,5 @@
 import SystemStatus from "./components/SystemStatus";
+import AuthStatus from "./components/AuthStatus";
 
 export default function Home() {
   return (
@@ -46,6 +47,8 @@ export default function Home() {
         <div className="my-12 h-px w-24 bg-gradient-to-r from-transparent via-line to-transparent" />
 
         <SystemStatus />
+
+        <AuthStatus />
 
         <div className="mt-10 flex w-full items-center justify-between font-mono text-xs text-muted">
           <span>v0.1.0 &middot; initializing</span>
