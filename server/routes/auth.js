@@ -20,7 +20,7 @@ router.post("/signup", async (req, res) => {
         .status(400)
         .json({ error: "역할은 counselor 또는 client여야 합니다" });
     }
-    if (password.length < 4) {
+    if (typeof password !== "string" || password.length < 4) {
       return res
         .status(400)
         .json({ error: "비밀번호는 4자 이상이어야 합니다" });
@@ -38,6 +38,9 @@ router.post("/signup", async (req, res) => {
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
     res.status(201).json({ name: user.name, role: user.role });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ error: "이미 가입된 이메일입니다" });
+    }
     console.error("회원가입 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
@@ -74,7 +77,8 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS);
+  const { maxAge, ...clearCookieOptions } = COOKIE_OPTIONS;
+  res.clearCookie(COOKIE_NAME, clearCookieOptions);
   res.json({});
 });
 

@@ -121,3 +121,63 @@ test("로그아웃 후에는 /me가 다시 401을 반환한다", async () => {
 
   assert.equal(res.status, 401);
 });
+
+test("로그아웃 응답의 Set-Cookie에는 만료 수명(Max-Age)이 남아있지 않다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent.post("/api/auth/logout");
+  const cookieHeader = res.headers["set-cookie"].find((c) =>
+    c.startsWith("somit_token=")
+  );
+
+  assert.ok(cookieHeader, "logout 응답에 somit_token Set-Cookie가 있어야 한다");
+  assert.ok(
+    !/Max-Age=(?!0\b)\d+/.test(cookieHeader),
+    `쿠키가 여전히 긴 수명을 갖고 있음: ${cookieHeader}`
+  );
+});
+
+test("동시에 같은 이메일로 회원가입하면 한쪽은 201, 다른 한쪽은 409를 반환한다", async () => {
+  const payloadA = {
+    name: "동시가입A",
+    email: "concurrent@test.com",
+    password: "1234",
+    role: "counselor",
+  };
+  const payloadB = {
+    name: "동시가입B",
+    email: "concurrent@test.com",
+    password: "5678",
+    role: "client",
+  };
+
+  const results = await Promise.allSettled([
+    request(app).post("/api/auth/signup").send(payloadA),
+    request(app).post("/api/auth/signup").send(payloadB),
+  ]);
+
+  const statuses = results.map((r) =>
+    r.status === "fulfilled" ? r.value.status : null
+  );
+
+  assert.ok(
+    statuses.includes(201),
+    `둘 중 하나는 201이어야 함: ${statuses}`
+  );
+  assert.ok(
+    statuses.every((s) => s === 201 || s === 409),
+    `500 없이 201/409만 있어야 함: ${statuses}`
+  );
+});
+
+test("비밀번호가 문자열이 아니면(JSON number) 400을 반환한다", async () => {
+  const res = await request(app)
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "numberpw@test.com", password: 1234, role: "client" });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, "비밀번호는 4자 이상이어야 합니다");
+});
