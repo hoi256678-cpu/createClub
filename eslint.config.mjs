@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Task 1 backend: intentional CommonJS with require(), not TypeScript
     "server/**",
+    // Local git worktrees (gitignored, but ESLint doesn't honor .gitignore by default)
+    ".worktrees/**",
   ]),
 ]);
 
