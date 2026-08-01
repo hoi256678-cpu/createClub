@@ -1,3 +1,5 @@
+import SystemStatus from "./components/SystemStatus";
+
 export default function Home() {
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-24">
@@ -43,7 +45,9 @@ export default function Home() {
 
         <div className="my-12 h-px w-24 bg-gradient-to-r from-transparent via-line to-transparent" />
 
-        <div className="flex w-full items-center justify-between font-mono text-xs text-muted">
+        <SystemStatus />
+
+        <div className="mt-10 flex w-full items-center justify-between font-mono text-xs text-muted">
           <span>v0.1.0 &middot; initializing</span>
           <span>2026</span>
         </div>
