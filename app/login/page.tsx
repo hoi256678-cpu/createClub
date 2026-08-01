@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 export default function LoginPage() {
@@ -37,37 +38,67 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="font-display text-3xl font-medium text-paper">로그인</h1>
+    <main className="flex min-h-screen flex-col shell:flex-row">
+      <div className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary-darker to-primary px-8 py-16 text-center shell:flex-1">
+        <div className="mb-2 text-4xl font-black text-white">솜잇 💙</div>
+        <p className="max-w-xs text-sm leading-relaxed text-white/80">
+          고민이 있는 청소년과
+          <br />
+          상담 전공 대학생을 연결하는
+          <br />
+          또래 상담 플랫폼
+        </p>
+        <div aria-hidden className="pointer-events-none absolute -bottom-10 -right-10 text-[200px] opacity-10">
+          🌊
+        </div>
+      </div>
 
-        <input
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="rounded-lg border border-line bg-ink-2 px-4 py-2 text-paper outline-none focus:border-accent"
-        />
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="rounded-lg border border-line bg-ink-2 px-4 py-2 text-paper outline-none focus:border-accent"
-        />
+      <div className="flex flex-1 items-center justify-center px-6 py-16 shell:max-w-[480px]">
+        <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4">
+          <h2 className="text-2xl font-black text-text">로그인</h2>
+          <p className="text-sm text-text-muted">솜잇에 오신 걸 환영해요 🌊</p>
 
-        {error && <p className="font-mono text-xs text-accent">{error}</p>}
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-text-muted">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="이메일을 입력하세요"
+              className="w-full rounded-xl border border-border px-3.5 py-3 text-sm text-text outline-none focus:border-primary-dark"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-text-muted">비밀번호</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="비밀번호를 입력하세요"
+              className="w-full rounded-xl border border-border px-3.5 py-3 text-sm text-text outline-none focus:border-primary-dark"
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-accent px-4 py-2 font-mono text-xs text-ink disabled:opacity-50"
-        >
-          {loading ? "로그인 중..." : "로그인"}
-        </button>
-      </form>
+          {error && <p className="text-xs font-semibold text-danger">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 rounded-xl bg-primary-dark py-3 text-sm font-extrabold text-white transition-colors hover:bg-primary-darker disabled:opacity-50"
+          >
+            {loading ? "로그인 중..." : "로그인"}
+          </button>
+
+          <p className="text-center text-xs text-text-muted">
+            아직 계정이 없으신가요?{" "}
+            <Link href="/signup" className="font-bold text-primary-dark">
+              회원가입
+            </Link>
+          </p>
+        </form>
+      </div>
     </main>
   );
 }
