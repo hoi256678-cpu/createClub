@@ -48,13 +48,13 @@ export default function SystemStatus() {
 
   const dotColor =
     state.phase === "ok" && state.mongoConnected
-      ? "bg-accent-2"
+      ? "bg-success"
       : state.phase === "loading"
-        ? "bg-muted"
-        : "bg-accent";
+        ? "bg-text-faint"
+        : "bg-danger";
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-line bg-ink-2/60 px-4 py-1.5 font-mono text-xs tracking-wide text-muted">
+    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg px-3 py-1.5 text-xs font-semibold text-text-muted">
       <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} aria-hidden />
       {label}
     </div>
