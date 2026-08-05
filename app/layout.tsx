@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/app/hooks/useAuthStatus";
+import { NotificationsProvider } from "@/app/hooks/useNotifications";
+import { ChatRoomsProvider } from "@/app/hooks/useChatRooms";
 
 const suit = localFont({
   src: [
@@ -29,7 +31,11 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${suit.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-bg text-text-2">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <NotificationsProvider>
+            <ChatRoomsProvider>{children}</ChatRoomsProvider>
+          </NotificationsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

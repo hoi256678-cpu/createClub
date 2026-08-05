@@ -4,9 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [, setAuthState] = useAuthStatus();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,12 +25,18 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      const data = (await res.json()) as {
+        error?: string;
+        name?: string;
+        role?: "counselor" | "client";
+      };
+
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
         setError(data.error ?? "로그인에 실패했습니다");
         return;
       }
 
+      setAuthState({ phase: "in", name: data.name!, role: data.role! });
       router.push("/");
     } catch {
       setError("백엔드에 연결할 수 없습니다");

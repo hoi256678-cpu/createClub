@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { COMMUNITY_POSTS, TOPICS, TOPIC_EMOJI, type CommunityComment } from "../mock";
 
 export default function CommunityPostPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const [auth] = useAuthStatus();
   const post = COMMUNITY_POSTS.find((p) => p.id === Number(params.id));
 
   const [likes, setLikes] = useState(post?.likes ?? 0);
@@ -42,7 +44,8 @@ export default function CommunityPostPage() {
 
   function submitComment() {
     if (!comment.trim()) return;
-    setComments((c) => [...c, { av: "💬", name: "나", role: "", text: comment.trim(), date: "방금 전" }]);
+    const name = auth.phase === "in" ? auth.name : "나";
+    setComments((c) => [...c, { av: "💬", name, role: "", text: comment.trim(), date: "방금 전" }]);
     setComment("");
   }
 

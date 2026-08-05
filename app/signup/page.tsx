@@ -4,9 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 
 export default function SignupPage() {
   const router = useRouter();
+  const [, setAuthState] = useAuthStatus();
   const [role, setRole] = useState<"counselor" | "client">("client");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,12 +27,18 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password, role }),
       });
 
+      const data = (await res.json()) as {
+        error?: string;
+        name?: string;
+        role?: "counselor" | "client";
+      };
+
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
         setError(data.error ?? "회원가입에 실패했습니다");
         return;
       }
 
+      setAuthState({ phase: "in", name: data.name!, role: data.role! });
       router.push("/");
     } catch {
       setError("백엔드에 연결할 수 없습니다");
@@ -47,7 +55,6 @@ export default function SignupPage() {
       >
         <div className="mb-1 text-2xl font-black text-text">솜잇 회원가입 💙</div>
         <p className="mb-2 text-sm text-text-muted">몇 가지만 알려주시면 바로 시작할 수 있어요</p>
-
         <div className="flex gap-2 rounded-xl border border-border bg-bg p-1">
           <button
             type="button"

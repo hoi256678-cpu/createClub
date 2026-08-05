@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
-import { CHAT_ROOMS } from "./mock";
+import { useChatRooms } from "@/app/hooks/useChatRooms";
 
 export default function ChatListPage() {
+  const { rooms } = useChatRooms();
+
   return (
     <RequireAuth>
       <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-border bg-surface shell:grid-cols-[300px_1fr]">
         <div className="border-b border-border shell:border-b-0 shell:border-r">
           <div className="border-b border-border px-4 py-4 font-extrabold text-text">상담 목록</div>
           <div>
-            {CHAT_ROOMS.map((r) => (
+            {rooms.map((r) => (
               <Link
                 key={r.id}
                 href={`/chat/${r.id}`}
