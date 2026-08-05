@@ -26,21 +26,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    apiFetch("/api/auth/me")
-      .then(async (res) => {
-        if (!res.ok) {
+    function fetchMe() {
+      apiFetch("/api/auth/me")
+        .then(async (res) => {
+          if (!res.ok) {
+            if (!cancelled) setState({ phase: "out" });
+            return;
+          }
+          const data = (await res.json()) as { name: string; role: "counselor" | "client" };
+          if (!cancelled) setState({ phase: "in", name: data.name, role: data.role });
+        })
+        .catch(() => {
           if (!cancelled) setState({ phase: "out" });
-          return;
-        }
-        const data = (await res.json()) as { name: string; role: "counselor" | "client" };
-        if (!cancelled) setState({ phase: "in", name: data.name, role: data.role });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ phase: "out" });
-      });
+        });
+    }
+
+    fetchMe();
+
+    // 뒤로/앞으로가기로 bfcache에서 페이지가 복원되면 로그인 상태를 다시 확인한다.
+    // (그렇지 않으면 로그아웃 이후에도 캐시된 이전 로그인 상태가 그대로 보임)
+    function handlePageShow(e: PageTransitionEvent) {
+      if (e.persisted) fetchMe();
+    }
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
 
