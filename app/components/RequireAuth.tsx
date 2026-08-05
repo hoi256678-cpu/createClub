@@ -15,7 +15,7 @@ export default function RequireAuth({
   const router = useRouter();
 
   useEffect(() => {
-    if (state.phase === "out") router.push("/login");
+    if (state.phase === "out") router.push("/");
   }, [state, router]);
 
   if (state.phase !== "in") return null;

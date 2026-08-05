@@ -48,7 +48,9 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen flex-col shell:flex-row">
       <div className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary-darker to-primary px-8 py-16 text-center shell:flex-1">
-        <div className="mb-2 text-4xl font-black text-white">솜잇 💙</div>
+        <Link href="/" className="mb-2 text-4xl font-black text-white">
+          솜잇 💙
+        </Link>
         <p className="max-w-xs text-sm leading-relaxed text-white/80">
           고민이 있는 청소년과
           <br />
