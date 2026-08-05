@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -41,6 +41,10 @@ export default function CommunityPostPage() {
   async function toggleLike() {
     if (requireLogin() || !post) return;
     const res = await apiFetch(`/api/community/posts/${post.id}/like`, { method: "POST" });
+    if (res.status === 401) {
+      router.push("/login");
+      return;
+    }
     if (!res.ok) return;
     const data = (await res.json()) as { liked: boolean; likeCount: number };
     setPost({ ...post, likedByMe: data.liked, likeCount: data.likeCount });
@@ -52,6 +56,10 @@ export default function CommunityPostPage() {
       method: "POST",
       body: JSON.stringify({ text: comment.trim() }),
     });
+    if (res.status === 401) {
+      router.push("/login");
+      return;
+    }
     if (!res.ok) return;
     const comments = await res.json();
     setPost({ ...post, comments, cmtCount: comments.length });

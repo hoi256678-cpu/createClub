@@ -6,6 +6,7 @@ import Card from "@/app/components/ui/Card";
 import SectionTitle from "@/app/components/ui/SectionTitle";
 import { apiFetch } from "@/lib/api";
 import { TEST_CARDS } from "./test/data";
+import { pickPopularPosts } from "./community/popular";
 import type { CommunityPost } from "./community/types";
 
 const QUOTES = [
@@ -25,10 +26,7 @@ export default function HomePage() {
       .catch(() => setPosts([]));
   }, []);
 
-  const popularPosts = [...posts]
-    .filter((p) => p.likeCount >= 15)
-    .sort((a, b) => b.likeCount - a.likeCount)
-    .slice(0, 5);
+  const popularPosts = pickPopularPosts(posts);
 
   return (
     <div className="flex flex-col gap-8">

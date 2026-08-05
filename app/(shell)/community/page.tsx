@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { NOTICE_POSTS, TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatRelativeTime } from "./time";
+import { pickPopularPosts } from "./popular";
 import type { CommunityPost } from "./types";
 
 type Tab = "best" | "all" | "notice";
@@ -16,7 +17,7 @@ type Tab = "best" | "all" | "notice";
 export default function CommunityPage() {
   const [auth] = useAuthStatus();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("best");
+  const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,10 +31,7 @@ export default function CommunityPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    let list =
-      tab === "best"
-        ? [...posts].filter((p) => p.likeCount >= 15).sort((a, b) => b.likeCount - a.likeCount)
-        : [...posts];
+    let list = tab === "best" ? pickPopularPosts(posts) : [...posts];
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q));
