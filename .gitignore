@@ -43,3 +43,6 @@ next-env.d.ts
 
 # worktrees
 /.worktrees
+
+# superpowers subagent-driven-development scratch workspace
+/.superpowers
