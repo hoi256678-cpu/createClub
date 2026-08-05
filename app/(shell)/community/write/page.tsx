@@ -4,30 +4,44 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
+import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS } from "../mock";
 
 export default function CommunityWritePage() {
   const router = useRouter();
+  const [auth] = useAuthStatus();
   const [category, setCategory] = useState<string>(TOPICS[0]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (auth.phase === "out") {
+      router.push("/login");
+      return;
+    }
     if (!title.trim() || !body.trim()) return;
-    setSubmitted(true);
-  }
 
-  if (submitted) {
-    return (
-      <div className="py-16 text-center">
-        <div className="mb-2 text-2xl">✍️💙</div>
-        <div className="mb-1 font-bold text-text">글이 올라갔어요 (임시 저장, 실제 저장은 아직 연결 전이에요)</div>
-        <button onClick={() => router.push("/community")} className="mt-4 font-bold text-primary-dark">
-          커뮤니티로 돌아가기
-        </button>
-      </div>
-    );
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/community/posts", {
+        method: "POST",
+        body: JSON.stringify({ tag: category, title, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "글 작성에 실패했습니다");
+        return;
+      }
+      router.push(`/community/${data.id}`);
+    } catch {
+      setError("백엔드에 연결할 수 없습니다");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -53,13 +67,14 @@ export default function CommunityWritePage() {
         rows={8}
         className="w-full resize-none text-sm leading-relaxed text-text-2 outline-none placeholder:text-text-faint"
       />
+      {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
       <div className="mt-4 flex justify-end border-t border-border pt-4">
         <button
           onClick={handleSubmit}
-          disabled={!title.trim() || !body.trim()}
+          disabled={!title.trim() || !body.trim() || submitting}
           className="rounded-xl bg-primary-dark px-6 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-primary-darker disabled:opacity-50"
         >
-          ✍️ 올리기
+          {submitting ? "올리는 중..." : "✍️ 올리기"}
         </button>
       </div>
     </Card>
