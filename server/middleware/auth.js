@@ -13,4 +13,16 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth };
+function optionalAuth(req, res, next) {
+  const token = req.cookies?.[COOKIE_NAME];
+  if (token) {
+    try {
+      req.user = verifyToken(token);
+    } catch (err) {
+      // 유효하지 않은 토큰은 비로그인 상태로 취급한다
+    }
+  }
+  next();
+}
+
+module.exports = { requireAuth, optionalAuth };
