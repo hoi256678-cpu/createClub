@@ -1,28 +1,52 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
-import { COMMUNITY_POSTS, NOTICE_POSTS, TOPICS, TOPIC_EMOJI } from "./mock";
+import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { NOTICE_POSTS, TOPICS, TOPIC_EMOJI } from "./mock";
+import { formatRelativeTime } from "./time";
+import type { CommunityPost } from "./types";
 
 type Tab = "best" | "all" | "notice";
 
 export default function CommunityPage() {
+  const [auth] = useAuthStatus();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("best");
   const [search, setSearch] = useState("");
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const posts = useMemo(() => {
+  useEffect(() => {
+    apiFetch("/api/community/posts")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CommunityPost[]) => setPosts(data))
+      .catch(() => setPosts([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
     let list =
       tab === "best"
-        ? [...COMMUNITY_POSTS].filter((p) => p.likes >= 15).sort((a, b) => b.likes - a.likes)
-        : [...COMMUNITY_POSTS];
+        ? [...posts].filter((p) => p.likeCount >= 15).sort((a, b) => b.likeCount - a.likeCount)
+        : [...posts];
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q));
     }
     return list;
-  }, [tab, search]);
+  }, [tab, search, posts]);
+
+  function handleWriteClick(e: React.MouseEvent) {
+    if (auth.phase === "out") {
+      e.preventDefault();
+      router.push("/login");
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 shell:grid-cols-[1fr_300px]">
@@ -43,6 +67,7 @@ export default function CommunityPage() {
           </div>
           <Link
             href="/community/write"
+            onClick={handleWriteClick}
             className="rounded-xl bg-primary-dark px-4 py-2 text-sm font-extrabold text-white transition-colors hover:bg-primary-darker"
           >
             ✍️ 글쓰기
@@ -66,26 +91,28 @@ export default function CommunityPage() {
               </Card>
             ))}
           </div>
-        ) : posts.length === 0 ? (
+        ) : loading ? (
+          <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>
+        ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-text-faint">해당하는 글이 없어요</div>
         ) : (
           <div className="flex flex-col gap-3">
-            {posts.map((p) => (
+            {filtered.map((p) => (
               <Link key={p.id} href={`/community/${p.id}`}>
                 <Card className="cursor-pointer transition-shadow hover:shadow-card">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="rounded-md bg-primary-light px-2 py-0.5 text-[11px] font-bold text-primary-dark">
                       {p.tag}
                     </span>
-                    {p.likes >= 15 && <span className="text-[11px] font-bold text-[#e07b8b]">🔥 인기</span>}
+                    {p.likeCount >= 15 && <span className="text-[11px] font-bold text-[#e07b8b]">🔥 인기</span>}
                   </div>
                   <div className="mb-1.5 font-bold text-text">{p.title}</div>
                   <div className="mb-3 line-clamp-2 text-[13px] text-text-muted">{p.body}</div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-text-faint">
                     <span>
-                      {p.author} · {p.time}
+                      {p.authorName} · {formatRelativeTime(p.createdAt)}
                     </span>
-                    <span>👍 {p.likes}</span>
+                    <span>👍 {p.likeCount}</span>
                     <span>💬 {p.cmtCount}</span>
                     <span>👁 {p.views}</span>
                   </div>
