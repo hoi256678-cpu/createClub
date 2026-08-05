@@ -83,6 +83,24 @@ test("제목이나 내용이 비어있으면 400을 반환한다", async () => {
   assert.equal(res.status, 400);
 });
 
+test("제목이 100자를 넘으면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const longTitle = "가".repeat(101);
+  const res = await agent.post("/api/community/posts").send({ tag: "고민", title: longTitle, body: "내용" });
+  assert.equal(res.status, 400);
+});
+
+test("내용이 5000자를 넘으면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const longBody = "가".repeat(5001);
+  const res = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: longBody });
+  assert.equal(res.status, 400);
+});
+
 test("게시글 상세를 조회할 때마다 조회수가 1씩 증가한다", async () => {
   const agent = request.agent(app);
   await signup(agent);
@@ -120,6 +138,16 @@ test("상담사가 댓글을 작성하면 상세 조회 시 댓글 목록과 cmt
   const detailRes = await request(app).get(`/api/community/posts/${createRes.body.id}`);
   assert.equal(detailRes.body.comments.length, 1);
   assert.equal(detailRes.body.cmtCount, 1);
+});
+
+test("댓글이 1000자를 넘으면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const longText = "가".repeat(1001);
+  const res = await agent.post(`/api/community/posts/${createRes.body.id}/comments`).send({ text: longText });
+  assert.equal(res.status, 400);
 });
 
 test("비로그인 상태로 댓글을 작성하면 401을 반환한다", async () => {

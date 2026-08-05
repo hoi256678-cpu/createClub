@@ -77,6 +77,9 @@ router.post("/posts", requireAuth, async (req, res) => {
     if (!tag || !title?.trim() || !body?.trim()) {
       return res.status(400).json({ error: "태그, 제목, 내용을 모두 입력해주세요" });
     }
+    if (title.trim().length > 100 || body.trim().length > 5000) {
+      return res.status(400).json({ error: "제목은 100자, 내용은 5000자를 넘을 수 없어요" });
+    }
 
     const post = await Post.create({ author: req.user.id, tag, title: title.trim(), body: body.trim() });
     await post.populate("author", "name role");
@@ -93,6 +96,9 @@ router.post("/posts/:id/comments", requireAuth, async (req, res) => {
     const { text } = req.body || {};
     if (!text?.trim()) {
       return res.status(400).json({ error: "댓글 내용을 입력해주세요" });
+    }
+    if (text.trim().length > 1000) {
+      return res.status(400).json({ error: "댓글은 1000자를 넘을 수 없어요" });
     }
 
     const post = await Post.findById(req.params.id);

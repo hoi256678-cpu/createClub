@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const commentSchema = new mongoose.Schema(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    text: { type: String, required: true },
+    text: { type: String, required: true, maxlength: 1000 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -11,9 +11,9 @@ const commentSchema = new mongoose.Schema(
 const postSchema = new mongoose.Schema(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    tag: { type: String, required: true },
-    title: { type: String, required: true, trim: true },
-    body: { type: String, required: true },
+    tag: { type: String, required: true, maxlength: 20 },
+    title: { type: String, required: true, trim: true, maxlength: 100 },
+    body: { type: String, required: true, maxlength: 5000 },
     views: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
