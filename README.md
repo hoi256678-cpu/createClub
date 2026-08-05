@@ -37,7 +37,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## 배포 현황 (솜잇 과제 산출물)
 
-- 프론트엔드 (Vercel): https://create-club-5kro.vercel.app
+- 프론트엔드 (Vercel): https://create-club.vercel.app
 - 백엔드 (Railway): https://createclub-production.up.railway.app
 - DB: MongoDB Atlas M0 Free Tier (백엔드를 통해서만 접근, `/api/health`로 연결 상태 확인 가능)
 - Railway에는 반드시 `NODE_ENV=production`을 설정해야 함 — 빠지면 인증 쿠키가 `Secure`/`SameSite=None`이 아닌 상태로 내려가 Vercel↔Railway 크로스 도메인 환경에서 브라우저가 쿠키를 전송하지 않고, 로그인은 200으로 성공하는 것처럼 보이지만 `/me`가 계속 401을 반환하는 조용한 실패로 이어짐
