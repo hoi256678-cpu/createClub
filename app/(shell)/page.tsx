@@ -46,7 +46,7 @@ export default function HomePage() {
           {TEST_CARDS.map((t) => (
             <Link
               key={t.type}
-              href="/test"
+              href={`/test?type=${t.type}`}
               className="relative flex min-h-[130px] flex-col gap-2.5 overflow-hidden rounded-2xl p-5 text-white transition-transform hover:-translate-y-1"
               style={{ background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})` }}
             >

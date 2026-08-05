@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { TEST_CARDS, TEST_DATA, type TestType, type TestResult } from "./data";
 
 export default function TestPage() {
-  const [active, setActive] = useState<TestType | null>(null);
+  return (
+    <Suspense fallback={null}>
+      <TestPageContent />
+    </Suspense>
+  );
+}
+
+function TestPageContent() {
+  const searchParams = useSearchParams();
+  const requestedType = searchParams.get("type");
+  const initialType = requestedType && requestedType in TEST_DATA ? (requestedType as TestType) : null;
+  const [active, setActive] = useState<TestType | null>(initialType);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [score, setScore] = useState(0);
   const [result, setResult] = useState<TestResult | null>(null);

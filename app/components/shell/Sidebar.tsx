@@ -18,7 +18,7 @@ export default function Sidebar({ pathname }: { pathname: string }) {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col border-r border-border bg-surface shell:flex">
-      <div className="flex items-center gap-2.5 border-b border-border px-5 py-6">
+      <Link href="/" className="flex items-center gap-2.5 border-b border-border px-5 py-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-dark to-primary-darker text-lg">
           🩵
         </div>
@@ -26,7 +26,7 @@ export default function Sidebar({ pathname }: { pathname: string }) {
           <div className="text-xl font-black tracking-tight text-text">솜잇</div>
           <div className="text-[11px] text-text-muted">또래 상담 플랫폼</div>
         </div>
-      </div>
+      </Link>
 
       <nav className="flex-1 overflow-y-auto p-3">
         <div className="mb-1 px-2 text-[10px] font-bold tracking-wider text-text-faint">메인</div>

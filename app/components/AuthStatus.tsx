@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 
 export default function AuthStatus() {
   const [state, setState] = useAuthStatus();
+  const router = useRouter();
 
   async function handleLogout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     setState({ phase: "out" });
+    router.push("/");
   }
 
   if (state.phase === "loading") return null;
