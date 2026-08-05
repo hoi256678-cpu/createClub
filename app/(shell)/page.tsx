@@ -1,8 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
 import SectionTitle from "@/app/components/ui/SectionTitle";
+import { apiFetch } from "@/lib/api";
 import { TEST_CARDS } from "./test/data";
-import { COMMUNITY_POSTS } from "./community/mock";
+import type { CommunityPost } from "./community/types";
 
 const QUOTES = [
   { text: "어둠 속을 걷고 있다면, 그냥 계속 걸어라.", src: "— 윈스턴 처칠" },
@@ -11,11 +15,20 @@ const QUOTES = [
 ];
 
 export default function HomePage() {
-  const popularPosts = [...COMMUNITY_POSTS]
-    .filter((p) => p.likes >= 15)
-    .sort((a, b) => b.likes - a.likes)
-    .slice(0, 5);
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
   const quote = QUOTES[0];
+
+  useEffect(() => {
+    apiFetch("/api/community/posts")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CommunityPost[]) => setPosts(data))
+      .catch(() => setPosts([]));
+  }, []);
+
+  const popularPosts = [...posts]
+    .filter((p) => p.likeCount >= 15)
+    .sort((a, b) => b.likeCount - a.likeCount)
+    .slice(0, 5);
 
   return (
     <div className="flex flex-col gap-8">
@@ -63,22 +76,26 @@ export default function HomePage() {
         <div>
           <SectionTitle action={<Link href="/community">더보기 ›</Link>}>⭐ 인기 글</SectionTitle>
           <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            {popularPosts.map((p) => (
-              <Link
-                key={p.id}
-                href={`/community/${p.id}`}
-                className="flex items-center gap-3 border-b border-border px-5 py-3.5 last:border-0 hover:bg-primary-xlight"
-              >
-                <span className="w-12 flex-shrink-0 rounded-md bg-primary-light px-1.5 py-0.5 text-center text-[10px] font-bold text-primary-dark">
-                  {p.tag}
-                </span>
-                <span className="flex-1 truncate text-sm text-text-2">{p.title}</span>
-                <span className="flex flex-shrink-0 items-center gap-2 text-xs text-text-faint">
-                  <span className="font-bold text-primary-dark">👍 {p.likes}</span>
-                  <span>💬 {p.cmtCount}</span>
-                </span>
-              </Link>
-            ))}
+            {popularPosts.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-text-faint">아직 인기 글이 없어요</div>
+            ) : (
+              popularPosts.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/community/${p.id}`}
+                  className="flex items-center gap-3 border-b border-border px-5 py-3.5 last:border-0 hover:bg-primary-xlight"
+                >
+                  <span className="w-12 flex-shrink-0 rounded-md bg-primary-light px-1.5 py-0.5 text-center text-[10px] font-bold text-primary-dark">
+                    {p.tag}
+                  </span>
+                  <span className="flex-1 truncate text-sm text-text-2">{p.title}</span>
+                  <span className="flex flex-shrink-0 items-center gap-2 text-xs text-text-faint">
+                    <span className="font-bold text-primary-dark">👍 {p.likeCount}</span>
+                    <span>💬 {p.cmtCount}</span>
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-4">

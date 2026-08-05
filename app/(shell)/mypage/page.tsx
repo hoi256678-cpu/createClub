@@ -1,9 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
+import { apiFetch } from "@/lib/api";
 
 export default function MypagePage() {
+  const [postCount, setPostCount] = useState(0);
+
+  useEffect(() => {
+    apiFetch("/api/community/my-posts/count")
+      .then((res) => (res.ok ? res.json() : { count: 0 }))
+      .then((data: { count: number }) => setPostCount(data.count))
+      .catch(() => setPostCount(0));
+  }, []);
+
   return (
     <RequireAuth>
       {(auth) => (
@@ -16,7 +27,7 @@ export default function MypagePage() {
             <div className="text-xs text-white/75">{auth.role === "counselor" ? "상담사" : "고민 청소년"}</div>
             <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl bg-white/15">
               <div className="border-r border-white/15 py-3 text-center">
-                <div className="font-extrabold text-white">0</div>
+                <div className="font-extrabold text-white">{postCount}</div>
                 <div className="mt-0.5 text-[10px] text-white/70">작성한 글</div>
               </div>
               <div className="border-r border-white/15 py-3 text-center">
