@@ -1,7 +1,21 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { CHAT_ROOMS, type ChatRoom, type ChatMessage } from "@/app/(shell)/chat/mock";
+import { readJSON, writeJSON } from "@/lib/storage";
+
+const READ_KEY = "somit:chat:read";
+const SENT_KEY = "somit:chat:sent";
+
+type SentMap = Record<string, ChatMessage[]>;
 
 type ChatRoomsContextValue = {
   rooms: ChatRoom[];
@@ -12,25 +26,59 @@ type ChatRoomsContextValue = {
 const ChatRoomsContext = createContext<ChatRoomsContextValue | null>(null);
 
 export function ChatRoomsProvider({ children }: { children: ReactNode }) {
-  const [rooms, setRooms] = useState<ChatRoom[]>(CHAT_ROOMS);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [sent, setSent] = useState<SentMap>({});
+
+  // 하이드레이션 불일치를 피하려고 마운트 후에 복원한다.
+  useEffect(() => {
+    setReadIds(readJSON<string[]>(READ_KEY, []));
+    setSent(readJSON<SentMap>(SENT_KEY, {}));
+  }, []);
 
   const markRoomRead = useCallback((id: string) => {
-    setRooms((prev) => prev.map((r) => (r.id === id ? { ...r, unread: 0 } : r)));
+    setReadIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      writeJSON(READ_KEY, next);
+      return next;
+    });
   }, []);
 
   const sendMessage = useCallback((id: string, text: string) => {
-    setRooms((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const message: ChatMessage = { id: r.messages.length + 1, from: "me", text, time: "방금" };
-        return { ...r, messages: [...r.messages, message], lastMessage: text };
-      }),
-    );
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setSent((prev) => {
+      const mine = prev[id] ?? [];
+      // 방의 기존 메시지 개수와 무관하게 항상 유일한 id를 만든다.
+      const message: ChatMessage = { id: Date.now(), from: "me", text: trimmed, time: "방금" };
+      const next = { ...prev, [id]: [...mine, message] };
+      writeJSON(SENT_KEY, next);
+      return next;
+    });
   }, []);
 
-  return (
-    <ChatRoomsContext.Provider value={{ rooms, markRoomRead, sendMessage }}>{children}</ChatRoomsContext.Provider>
+  const rooms = useMemo<ChatRoom[]>(
+    () =>
+      CHAT_ROOMS.map((room) => {
+        const mine = sent[room.id] ?? [];
+        const messages = mine.length ? [...room.messages, ...mine] : room.messages;
+        const last = messages[messages.length - 1];
+        return {
+          ...room,
+          messages,
+          lastMessage: last ? last.text : room.lastMessage,
+          unread: readIds.includes(room.id) ? 0 : room.unread,
+        };
+      }),
+    [readIds, sent],
   );
+
+  const value = useMemo(
+    () => ({ rooms, markRoomRead, sendMessage }),
+    [rooms, markRoomRead, sendMessage],
+  );
+
+  return <ChatRoomsContext.Provider value={value}>{children}</ChatRoomsContext.Provider>;
 }
 
 export function useChatRooms(): ChatRoomsContextValue {

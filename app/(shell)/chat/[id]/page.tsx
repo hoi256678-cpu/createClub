@@ -12,9 +12,12 @@ export default function ChatRoomPage() {
   const room = rooms.find((r) => r.id === params.id);
   const [input, setInput] = useState("");
 
+  const roomId = room?.id;
+  const unread = room?.unread ?? 0;
+
   useEffect(() => {
-    if (room && room.unread > 0) markRoomRead(room.id);
-  }, [room, markRoomRead]);
+    if (roomId && unread > 0) markRoomRead(roomId);
+  }, [roomId, unread, markRoomRead]);
 
   if (!room) {
     return (

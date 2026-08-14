@@ -37,13 +37,16 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 export default function SettingsPage() {
-  const [auth, setAuth] = useAuthStatus();
+  const { state: auth, setLoggedOut } = useAuthStatus();
   const router = useRouter();
 
   async function handleLogout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    setAuth({ phase: "out" });
-    router.push("/");
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      setLoggedOut();
+      router.push("/");
+    }
   }
 
   return (

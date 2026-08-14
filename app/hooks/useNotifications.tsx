@@ -1,7 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { NOTIFICATIONS, type NotificationItem } from "@/app/(shell)/notifications/mock";
+import { readJSON, writeJSON } from "@/lib/storage";
+
+const STORAGE_KEY = "somit:notifications:read";
 
 type NotificationsContextValue = {
   items: NotificationItem[];
@@ -13,23 +24,49 @@ type NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<NotificationItem[]>(NOTIFICATIONS);
+  // 읽은 알림 id 목록만 저장한다. 목록 자체(NOTIFICATIONS)가 바뀌어도 안전하다.
+  const [readIds, setReadIds] = useState<number[]>([]);
 
-  function markRead(id: number) {
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
-  }
+  // localStorage는 렌더 중에 읽으면 서버/클라이언트 HTML이 달라져 하이드레이션이 깨진다.
+  // 반드시 마운트 후 effect에서 읽는다.
+  useEffect(() => {
+    setReadIds(readJSON<number[]>(STORAGE_KEY, []));
+  }, []);
 
-  function markAllRead() {
-    setItems((prev) => prev.map((n) => ({ ...n, unread: false })));
-  }
+  const persist = useCallback((next: number[]) => {
+    setReadIds(next);
+    writeJSON(STORAGE_KEY, next);
+  }, []);
 
-  const unreadCount = items.filter((n) => n.unread).length;
-
-  return (
-    <NotificationsContext.Provider value={{ items, unreadCount, markRead, markAllRead }}>
-      {children}
-    </NotificationsContext.Provider>
+  const markRead = useCallback(
+    (id: number) => {
+      setReadIds((prev) => {
+        if (prev.includes(id)) return prev;
+        const next = [...prev, id];
+        writeJSON(STORAGE_KEY, next);
+        return next;
+      });
+    },
+    [],
   );
+
+  const markAllRead = useCallback(() => {
+    persist(NOTIFICATIONS.map((n) => n.id));
+  }, [persist]);
+
+  const items = useMemo(
+    () => NOTIFICATIONS.map((n) => ({ ...n, unread: n.unread && !readIds.includes(n.id) })),
+    [readIds],
+  );
+
+  const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
+
+  const value = useMemo(
+    () => ({ items, unreadCount, markRead, markAllRead }),
+    [items, unreadCount, markRead, markAllRead],
+  );
+
+  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
 export function useNotifications(): NotificationsContextValue {

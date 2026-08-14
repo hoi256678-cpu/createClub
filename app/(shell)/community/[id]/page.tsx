@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
-import Chip from "@/app/components/ui/Chip";
 import { apiFetch } from "@/lib/api";
+import { loginHref } from "@/app/components/RequireAuth";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS, TOPIC_EMOJI } from "../mock";
 import { formatRelativeTime } from "../time";
@@ -14,7 +14,7 @@ import type { CommunityPostDetail } from "../types";
 export default function CommunityPostPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [auth] = useAuthStatus();
+  const { state: auth } = useAuthStatus();
   const [post, setPost] = useState<CommunityPostDetail | null | undefined>(undefined);
   const [comment, setComment] = useState("");
 
@@ -32,7 +32,7 @@ export default function CommunityPostPage() {
 
   function requireLogin() {
     if (auth.phase === "out") {
-      router.push("/login");
+      router.push(loginHref(`/community/${params.id}`));
       return true;
     }
     return false;
@@ -42,7 +42,7 @@ export default function CommunityPostPage() {
     if (requireLogin() || !post) return;
     const res = await apiFetch(`/api/community/posts/${post.id}/like`, { method: "POST" });
     if (res.status === 401) {
-      router.push("/login");
+      router.push(loginHref(`/community/${params.id}`));
       return;
     }
     if (!res.ok) return;
@@ -57,7 +57,7 @@ export default function CommunityPostPage() {
       body: JSON.stringify({ text: comment.trim() }),
     });
     if (res.status === 401) {
-      router.push("/login");
+      router.push(loginHref(`/community/${params.id}`));
       return;
     }
     if (!res.ok) return;
@@ -161,9 +161,13 @@ export default function CommunityPostPage() {
           <div className="mb-3 font-extrabold text-text">🔥 주목받는 주제</div>
           <div className="flex flex-wrap gap-1.5">
             {TOPICS.map((t) => (
-              <Chip key={t}>
+              <Link
+                key={t}
+                href={`/community?topic=${encodeURIComponent(t)}`}
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-text-muted transition-colors hover:border-primary-dark hover:text-primary-dark"
+              >
                 {TOPIC_EMOJI[t]} {t}
-              </Chip>
+              </Link>
             ))}
           </div>
         </Card>

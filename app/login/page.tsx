@@ -1,14 +1,26 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { safeNextPath } from "@/lib/next-path";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
-  const [, setAuthState] = useAuthStatus();
+  const searchParams = useSearchParams();
+  // 로그인이 필요해 튕겨온 경우 원래 가려던 곳으로 되돌려준다.
+  const nextPath = safeNextPath(searchParams.get("next"));
+  const { setLoggedIn } = useAuthStatus();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +48,8 @@ export default function LoginPage() {
         return;
       }
 
-      setAuthState({ phase: "in", name: data.name!, role: data.role! });
-      router.push("/");
+      setLoggedIn({ name: data.name!, role: data.role! });
+      router.replace(nextPath);
     } catch {
       setError("백엔드에 연결할 수 없습니다");
     } finally {
@@ -103,7 +115,10 @@ export default function LoginPage() {
 
           <p className="text-center text-xs text-text-muted">
             아직 계정이 없으신가요?{" "}
-            <Link href="/signup" className="font-bold text-primary-dark">
+            <Link
+              href={`/signup?next=${encodeURIComponent(nextPath)}`}
+              className="font-bold text-primary-dark"
+            >
               회원가입
             </Link>
           </p>

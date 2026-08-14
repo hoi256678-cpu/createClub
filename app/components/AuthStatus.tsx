@@ -6,13 +6,17 @@ import { apiFetch } from "@/lib/api";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 
 export default function AuthStatus() {
-  const [state, setState] = useAuthStatus();
+  const { state, setLoggedOut } = useAuthStatus();
   const router = useRouter();
 
   async function handleLogout() {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    setState({ phase: "out" });
-    router.push("/");
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      // 네트워크가 실패해도 클라이언트 상태는 반드시 로그아웃으로 내린다.
+      setLoggedOut();
+      router.push("/");
+    }
   }
 
   if (state.phase === "loading") return null;

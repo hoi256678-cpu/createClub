@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
+import AuthLink from "@/app/components/AuthLink";
 import { apiFetch } from "@/lib/api";
-import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { NOTICE_POSTS, TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
@@ -15,10 +15,19 @@ import type { CommunityPost } from "./types";
 type Tab = "best" | "all" | "notice";
 
 export default function CommunityPage() {
-  const [auth] = useAuthStatus();
-  const router = useRouter();
+  return (
+    <Suspense fallback={null}>
+      <CommunityPageContent />
+    </Suspense>
+  );
+}
+
+function CommunityPageContent() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
+  // 게시글 상세 화면의 주제 칩에서 넘어온 경우 해당 주제로 바로 걸러준다.
+  const [topic, setTopic] = useState<string | null>(searchParams.get("topic"));
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,19 +41,15 @@ export default function CommunityPage() {
 
   const filtered = useMemo(() => {
     let list = tab === "best" ? pickPopularPosts(posts) : [...posts];
+    if (topic) {
+      list = list.filter((p) => p.tag === topic);
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q));
     }
     return list;
-  }, [tab, search, posts]);
-
-  function handleWriteClick(e: React.MouseEvent) {
-    if (auth.phase === "out") {
-      e.preventDefault();
-      router.push("/login");
-    }
-  }
+  }, [tab, search, topic, posts]);
 
   return (
     <div className="grid grid-cols-1 gap-6 shell:grid-cols-[1fr_300px]">
@@ -63,13 +68,12 @@ export default function CommunityPage() {
               </button>
             ))}
           </div>
-          <Link
+          <AuthLink
             href="/community/write"
-            onClick={handleWriteClick}
             className="rounded-xl bg-primary-dark px-4 py-2 text-sm font-extrabold text-white transition-colors hover:bg-primary-darker"
           >
             ✍️ 글쓰기
-          </Link>
+          </AuthLink>
         </div>
 
         <input
@@ -92,7 +96,9 @@ export default function CommunityPage() {
         ) : loading ? (
           <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-text-faint">해당하는 글이 없어요</div>
+          <div className="py-16 text-center text-text-faint">
+            {topic ? `'${topic}' 주제의 글이 아직 없어요` : "해당하는 글이 없어요"}
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             {filtered.map((p) => (
@@ -123,10 +129,24 @@ export default function CommunityPage() {
 
       <div className="flex flex-col gap-3">
         <Card>
-          <div className="mb-3 font-extrabold text-text">🔥 주목받는 주제</div>
+          <div className="mb-3 flex items-center gap-2 font-extrabold text-text">
+            🔥 주목받는 주제
+            {topic && (
+              <button
+                onClick={() => setTopic(null)}
+                className="ml-auto text-[11px] font-bold text-primary-dark"
+              >
+                필터 해제
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {TOPICS.map((t) => (
-              <Chip key={t}>
+              <Chip
+                key={t}
+                active={topic === t}
+                onClick={() => setTopic((prev) => (prev === t ? null : t))}
+              >
                 {TOPIC_EMOJI[t]} {t}
               </Chip>
             ))}
