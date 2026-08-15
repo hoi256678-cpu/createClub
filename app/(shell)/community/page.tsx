@@ -13,6 +13,7 @@ import { pickPopularPosts } from "./popular";
 import type { CommunityPost } from "./types";
 
 type Tab = "best" | "all" | "notice";
+type Sort = "recent" | "likes" | "comments" | "views";
 
 export default function CommunityPage() {
   return (
@@ -28,6 +29,7 @@ function CommunityPageContent() {
   const [search, setSearch] = useState("");
   // 게시글 상세 화면의 주제 칩에서 넘어온 경우 해당 주제로 바로 걸러준다.
   const [topic, setTopic] = useState<string | null>(searchParams.get("topic"));
+  const [sort, setSort] = useState<Sort>("recent");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,8 +50,15 @@ function CommunityPageContent() {
       const q = search.trim().toLowerCase();
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q));
     }
+    // 인기글 탭은 이미 좋아요순으로 추려진 목록이라 정렬을 덮어쓰지 않는다.
+    if (tab !== "best") {
+      if (sort === "likes") list.sort((a, b) => b.likeCount - a.likeCount);
+      else if (sort === "comments") list.sort((a, b) => b.cmtCount - a.cmtCount);
+      else if (sort === "views") list.sort((a, b) => b.views - a.views);
+      else list.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    }
     return list;
-  }, [tab, search, topic, posts]);
+  }, [tab, search, topic, sort, posts]);
 
   return (
     <div className="grid grid-cols-1 gap-6 shell:grid-cols-[1fr_300px]">
@@ -75,6 +84,23 @@ function CommunityPageContent() {
             ✍️ 글쓰기
           </AuthLink>
         </div>
+
+        {tab !== "notice" && (
+          <div className="mb-3 flex flex-wrap items-center gap-1">
+            {(["recent", "likes", "comments", "views"] as Sort[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSort(s)}
+                disabled={tab === "best"}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 ${
+                  sort === s && tab !== "best" ? "text-primary-dark" : "text-text-faint"
+                }`}
+              >
+                {s === "recent" ? "최신순" : s === "likes" ? "공감순" : s === "comments" ? "댓글순" : "조회순"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <input
           value={search}
@@ -109,6 +135,11 @@ function CommunityPageContent() {
                       {p.tag}
                     </span>
                     {p.likeCount >= 15 && <span className="text-[11px] font-bold text-[#e07b8b]">🔥 인기</span>}
+                    {p.cmtCount > 0 && (
+                      <span className="rounded-md bg-[#eafaf5] px-1.5 py-0.5 text-[10px] font-bold text-success">
+                        답변 완료
+                      </span>
+                    )}
                   </div>
                   <div className="mb-1.5 font-bold text-text">{p.title}</div>
                   <div className="mb-3 line-clamp-2 text-[13px] text-text-muted">{p.body}</div>

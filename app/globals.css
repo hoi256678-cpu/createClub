@@ -45,3 +45,16 @@ body {
   background: var(--bg);
   color: var(--text-2);
 }
+
+/*
+ * iOS Safari는 글꼴 크기가 16px 미만인 입력 요소에 포커스가 가면 화면을 자동 확대한다.
+ * 확대된 뒤에는 원래 배율로 돌아오지 않아 레이아웃이 깨진 것처럼 보인다.
+ * (user-scalable=no로 막는 방법도 있지만 접근성을 해치므로 쓰지 않는다)
+ */
+@media (max-width: 899px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

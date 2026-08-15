@@ -57,7 +57,7 @@ export default function Sidebar({ pathname }: { pathname: string }) {
             <div className="text-[11px] text-text-muted">
               {auth.phase === "in"
                 ? auth.role === "counselor"
-                  ? "🌿 상담사"
+                  ? "상담사"
                   : "🌱 고민 청소년"
                 : "👆 클릭해서 로그인"}
             </div>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/app/hooks/useAuthStatus";
@@ -17,6 +17,13 @@ const suit = localFont({
   variable: "--font-suit",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // iPhone 노치/홈 인디케이터 영역까지 그린 뒤, safe-area-inset으로 여백을 직접 준다.
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "솜잇",

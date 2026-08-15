@@ -39,12 +39,20 @@ export default function HomePage() {
             솜잇이 함께해요 💙
           </h1>
           <p className="mt-2 text-sm text-white/80">또래 상담사와 1:1로 이야기를 나눠보세요</p>
-          <AuthLink
-            href="/chat"
-            className="mt-5 inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
-          >
-            AI 맞춤 상담 시작하기 →
-          </AuthLink>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link
+              href="/counselors"
+              className="inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
+            >
+              또래 상담사 찾기 →
+            </Link>
+            <Link
+              href="/mood"
+              className="inline-block rounded-xl border border-white/50 px-5 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-white/10"
+            >
+              오늘 기분 기록
+            </Link>
+          </div>
         </div>
         <div aria-hidden className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
         <div aria-hidden className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-7xl opacity-20">

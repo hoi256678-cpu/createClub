@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
+import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
 
 export default function ChatListPage() {
   const { rooms } = useChatRooms();
 
   return (
-    <RequireAuth>
+    <RequireAuth reason={GUEST_UPGRADE_REASON.liveChat}>
       <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-border bg-surface shell:grid-cols-[300px_1fr]">
         <div className="border-b border-border shell:border-b-0 shell:border-r">
           <div className="border-b border-border px-4 py-4 font-extrabold text-text">상담 목록</div>
@@ -38,8 +39,14 @@ export default function ChatListPage() {
             ))}
           </div>
         </div>
-        <div className="hidden items-center justify-center py-24 text-text-faint shell:flex">
+        <div className="hidden flex-col items-center justify-center gap-4 py-24 text-text-faint shell:flex">
           왼쪽에서 상담을 선택해주세요
+          <Link
+            href="/counselors"
+            className="rounded-xl border border-border px-4 py-2 text-[13px] font-bold text-primary-dark transition-colors hover:border-primary-dark"
+          >
+            새 상담사 찾아보기 →
+          </Link>
         </div>
       </div>
     </RequireAuth>

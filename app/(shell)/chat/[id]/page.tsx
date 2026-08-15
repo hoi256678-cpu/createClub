@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RequireAuth from "@/app/components/RequireAuth";
+import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
 
 export default function ChatRoomPage() {
@@ -21,7 +22,7 @@ export default function ChatRoomPage() {
 
   if (!room) {
     return (
-      <RequireAuth>
+      <RequireAuth reason={GUEST_UPGRADE_REASON.liveChat}>
         <div className="py-16 text-center text-text-faint">채팅방을 찾을 수 없어요.</div>
       </RequireAuth>
     );
@@ -35,7 +36,7 @@ export default function ChatRoomPage() {
 
   return (
     <RequireAuth>
-      <div className="flex h-[calc(100vh-160px)] flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex h-[calc(100dvh-200px)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shell:h-[calc(100dvh-160px)]">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3">
           <button onClick={() => router.push("/chat")} className="text-text-muted">
             ←

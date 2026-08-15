@@ -12,8 +12,11 @@ export function loginHref(nextPath: string) {
 
 export default function RequireAuth({
   children,
+  reason,
 }: {
   children: React.ReactNode | ((auth: LoggedInState) => React.ReactNode);
+  /** 계정이 필요한 이유. 비워두면 기본 문구를 쓴다. */
+  reason?: string;
 }) {
   const { state } = useAuthStatus();
   const router = useRouter();
@@ -42,8 +45,9 @@ export default function RequireAuth({
 
   if (state.phase === "out") {
     return (
-      <div className="py-24 text-center text-sm text-text-muted">
-        로그인이 필요한 페이지예요. 로그인 화면으로 이동할게요...
+      <div className="px-6 py-24 text-center text-sm leading-relaxed text-text-muted">
+        {reason ?? "로그인이 필요한 페이지예요."}
+        <span className="mt-1 block text-text-faint">로그인 화면으로 이동할게요...</span>
       </div>
     );
   }

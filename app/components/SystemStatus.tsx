@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
 
 type HealthState =
   | { phase: "loading" }
@@ -8,17 +9,13 @@ type HealthState =
   | { phase: "error" };
 
 export default function SystemStatus() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const [state, setState] = useState<HealthState>(
-    apiUrl ? { phase: "loading" } : { phase: "error" }
-  );
+  const [state, setState] = useState<HealthState>({ phase: "loading" });
 
   useEffect(() => {
-    if (!apiUrl) return;
-
     let cancelled = false;
 
-    fetch(`${apiUrl}/api/health`)
+    // apiFetch를 쓰면 프록시 경유 여부와 무관하게 같은 경로로 호출된다.
+    apiFetch("/api/health")
       .then((res) => {
         if (!res.ok) throw new Error("bad response");
         return res.json();
@@ -35,7 +32,7 @@ export default function SystemStatus() {
     return () => {
       cancelled = true;
     };
-  }, [apiUrl]);
+  }, []);
 
   const label =
     state.phase === "loading"

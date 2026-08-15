@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import TestResultActions from "@/app/components/TestResultActions";
+import { useTestHistory } from "@/app/hooks/useTestHistory";
 import { TEST_CARDS, TEST_DATA, type TestType, type TestResult } from "./data";
 
 export default function TestPage() {
@@ -20,6 +22,8 @@ function TestPageContent() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [score, setScore] = useState(0);
   const [result, setResult] = useState<TestResult | null>(null);
+  const [delta, setDelta] = useState<number | null>(null);
+  const { add, previousScore } = useTestHistory();
 
   function startTest(type: TestType) {
     setActive(type);
@@ -40,8 +44,16 @@ function TestPageContent() {
       const v = answers[i];
       s += def.reverseIdx.includes(i) ? 4 - v : v;
     });
+    const outcome = def.getResult(s);
     setScore(s);
-    setResult(def.getResult(s));
+    setResult(outcome);
+
+    // 최고 구간(마지막 결과 단계)에 해당하면 지원이 필요한 상태로 본다.
+    const max = def.questions.length * 4;
+    const needsSupport = s >= max * 0.5;
+    const prev = previousScore(active);
+    setDelta(prev === null ? null : s - prev);
+    add({ type: active, title: def.title, score: s, label: outcome.label, color: outcome.color, needsSupport });
   }
 
   if (!active) {
@@ -87,9 +99,14 @@ function TestPageContent() {
           </div>
           <div className="mb-3 text-lg font-bold text-text">{result.label}</div>
           <div className="text-sm leading-relaxed text-text-muted">{result.desc}</div>
+          <TestResultActions
+            needsSupport={score >= def.questions.length * 4 * 0.5}
+            isHighRisk={score >= def.questions.length * 4 * 0.75}
+            delta={delta}
+          />
           <button
             onClick={() => setActive(null)}
-            className="mt-6 rounded-xl bg-primary-dark px-6 py-2.5 text-sm font-extrabold text-white"
+            className="mt-3 text-sm font-bold text-text-muted"
           >
             닫기
           </button>

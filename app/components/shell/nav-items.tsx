@@ -72,6 +72,9 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/chat")) return "채팅 상담";
   if (pathname.startsWith("/test")) return "심리검사";
   if (pathname.startsWith("/mypage")) return "마이페이지";
+  if (pathname.startsWith("/counselors/")) return "상담사 프로필";
+  if (pathname.startsWith("/counselors")) return "상담사 찾기";
+  if (pathname.startsWith("/mood")) return "오늘의 기분";
   if (pathname.startsWith("/notifications")) return "알림";
   if (pathname.startsWith("/settings")) return "설정";
   return "솜잇";
