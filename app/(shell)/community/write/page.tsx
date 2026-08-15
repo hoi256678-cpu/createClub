@@ -4,13 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
+import RequireAuth from "@/app/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
-import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS } from "../mock";
 
 export default function CommunityWritePage() {
+  // 글을 다 쓴 뒤 제출 순간에 튕기지 않도록 진입 시점에 막는다.
+  return (
+    <RequireAuth>
+      <CommunityWriteForm />
+    </RequireAuth>
+  );
+}
+
+function CommunityWriteForm() {
   const router = useRouter();
-  const [auth] = useAuthStatus();
   const [category, setCategory] = useState<string>(TOPICS[0]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -18,10 +26,6 @@ export default function CommunityWritePage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
-    if (auth.phase === "out") {
-      router.push("/login");
-      return;
-    }
     if (!title.trim() || !body.trim()) return;
 
     setSubmitting(true);

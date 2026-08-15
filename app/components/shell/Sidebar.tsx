@@ -1,20 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import AuthLink from "@/app/components/AuthLink";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { NAV_ITEMS, isNavActive } from "./nav-items";
 
 export default function Sidebar({ pathname }: { pathname: string }) {
-  const [auth] = useAuthStatus();
-  const router = useRouter();
-
-  function handleNavClick(e: React.MouseEvent, href: string, requiresAuth: boolean) {
-    if (requiresAuth && auth.phase === "out") {
-      e.preventDefault();
-      router.push("/login");
-    }
-  }
+  const { state: auth } = useAuthStatus();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col border-r border-border bg-surface shell:flex">
@@ -33,10 +25,10 @@ export default function Sidebar({ pathname }: { pathname: string }) {
         {NAV_ITEMS.map(({ href, label, requiresAuth, Icon }) => {
           const active = isNavActive(pathname, href);
           return (
-            <Link
+            <AuthLink
               key={href}
               href={href}
-              onClick={(e) => handleNavClick(e, href, requiresAuth)}
+              requiresAuth={requiresAuth}
               className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                 active
                   ? "bg-primary-light text-primary-dark"
@@ -45,14 +37,14 @@ export default function Sidebar({ pathname }: { pathname: string }) {
             >
               <Icon className="h-[18px] w-[18px]" />
               {label}
-            </Link>
+            </AuthLink>
           );
         })}
       </nav>
 
       <div className="border-t border-border p-3">
         <Link
-          href={auth.phase === "in" ? "/mypage" : "/login"}
+          href={auth.phase === "in" ? "/mypage" : "/login?next=%2Fmypage"}
           className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors hover:bg-primary-light"
         >
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-dark to-primary-darker text-sm font-extrabold text-white">

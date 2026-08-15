@@ -6,14 +6,14 @@ import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useNotifications } from "@/app/hooks/useNotifications";
 
 export default function TopBar({ title }: { title: string }) {
-  const [auth] = useAuthStatus();
+  const { state: auth } = useAuthStatus();
   const { unreadCount } = useNotifications();
 
   return (
     <header className="sticky top-0 z-10 flex h-[60px] items-center gap-4 border-b border-border bg-surface px-4 shell:px-8">
       <div className="flex-1 text-[18px] font-extrabold text-text">{title}</div>
       <div className="flex items-center gap-3">
-        {auth.phase === "in" && (
+        {auth.phase !== "out" && (
           <Link
             href="/notifications"
             className="relative flex h-9 w-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-light hover:text-primary-dark"

@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { safeNextPath } from "@/lib/next-path";
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+function SignupPageContent() {
   const router = useRouter();
-  const [, setAuthState] = useAuthStatus();
+  const searchParams = useSearchParams();
+  const nextPath = safeNextPath(searchParams.get("next"));
+  const { setLoggedIn } = useAuthStatus();
   const [role, setRole] = useState<"counselor" | "client">("client");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,8 +49,8 @@ export default function SignupPage() {
         return;
       }
 
-      setAuthState({ phase: "in", name: data.name!, role: data.role! });
-      router.push("/");
+      setLoggedIn({ name: data.name!, role: data.role! });
+      router.replace(nextPath);
     } catch {
       setError("백엔드에 연결할 수 없습니다");
     } finally {
@@ -114,7 +125,10 @@ export default function SignupPage() {
 
         <p className="text-center text-xs text-text-muted">
           이미 계정이 있으신가요?{" "}
-          <Link href="/login" className="font-bold text-primary-dark">
+          <Link
+            href={`/login?next=${encodeURIComponent(nextPath)}`}
+            className="font-bold text-primary-dark"
+          >
             로그인
           </Link>
         </p>

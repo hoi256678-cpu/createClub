@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AuthLink from "@/app/components/AuthLink";
 import Card from "@/app/components/ui/Card";
 import SectionTitle from "@/app/components/ui/SectionTitle";
 import { apiFetch } from "@/lib/api";
@@ -38,12 +39,12 @@ export default function HomePage() {
             솜잇이 함께해요 💙
           </h1>
           <p className="mt-2 text-sm text-white/80">또래 상담사와 1:1로 이야기를 나눠보세요</p>
-          <Link
+          <AuthLink
             href="/chat"
             className="mt-5 inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
           >
             AI 맞춤 상담 시작하기 →
-          </Link>
+          </AuthLink>
         </div>
         <div aria-hidden className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
         <div aria-hidden className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-7xl opacity-20">
@@ -102,13 +103,13 @@ export default function HomePage() {
             <div className="text-sm font-semibold leading-relaxed text-text-2">{quote.text}</div>
             <div className="mt-3 text-right text-xs italic text-text-muted">{quote.src}</div>
           </Card>
-          <Link href="/chat" className="flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 hover:bg-primary-xlight">
+          <AuthLink href="/chat" className="flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 hover:bg-primary-xlight">
             <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-light text-xl">💬</div>
             <div>
               <div className="text-sm font-bold text-text">AI 맞춤 1:1 상담</div>
               <div className="mt-0.5 text-xs text-text-muted">나에게 맞는 상담사를 연결해드려요</div>
             </div>
-          </Link>
+          </AuthLink>
         </div>
       </div>
     </div>
