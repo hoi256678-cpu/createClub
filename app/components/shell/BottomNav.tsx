@@ -7,7 +7,7 @@ import { NAV_ITEMS, isNavActive } from "./nav-items";
 export default function BottomNav({ pathname }: { pathname: string }) {
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 flex h-16 items-center justify-around border-t border-border bg-surface shell:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-20 flex h-16 items-center justify-around border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] shell:hidden">
       {NAV_ITEMS.map(({ href, label, requiresAuth, Icon }) => {
         const active = isNavActive(pathname, href);
         return (

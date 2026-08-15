@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SystemStatus from "@/app/components/SystemStatus";
+import CrisisNotice from "@/app/components/CrisisNotice";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { apiFetch } from "@/lib/api";
 
@@ -64,6 +65,8 @@ export default function SettingsPage() {
           <span className="text-xs font-bold text-success">적용 중</span>
         </div>
       </SectionCard>
+
+      <CrisisNotice />
 
       <SectionCard title="앱 정보">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3">

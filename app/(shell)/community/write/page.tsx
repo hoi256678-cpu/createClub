@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
 import RequireAuth from "@/app/components/RequireAuth";
+import { GUEST_UPGRADE_REASON } from "@/lib/access";
+import CrisisNotice from "@/app/components/CrisisNotice";
+import { detectCrisis } from "@/lib/crisis";
 import { apiFetch } from "@/lib/api";
 import { TOPICS } from "../mock";
 
 export default function CommunityWritePage() {
   // 글을 다 쓴 뒤 제출 순간에 튕기지 않도록 진입 시점에 막는다.
   return (
-    <RequireAuth>
+    <RequireAuth reason={GUEST_UPGRADE_REASON.communityWrite}>
       <CommunityWriteForm />
     </RequireAuth>
   );
@@ -24,6 +27,9 @@ function CommunityWriteForm() {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // 글을 막지 않는다. 도움받을 곳이 있다는 것만 조용히 알린다.
+  const showCrisis = detectCrisis(`${title} ${body}`);
 
   async function handleSubmit() {
     if (!title.trim() || !body.trim()) return;
@@ -71,6 +77,11 @@ function CommunityWriteForm() {
         rows={8}
         className="w-full resize-none text-sm leading-relaxed text-text-2 outline-none placeholder:text-text-faint"
       />
+      {showCrisis && (
+        <div className="mt-4">
+          <CrisisNotice />
+        </div>
+      )}
       {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
       <div className="mt-4 flex justify-end border-t border-border pt-4">
         <button
