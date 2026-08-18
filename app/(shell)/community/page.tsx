@@ -112,11 +112,13 @@ function CommunityPageContent() {
         {tab === "notice" ? (
           <div className="flex flex-col gap-2">
             {NOTICE_POSTS.map((n) => (
-              <Card key={n.id}>
-                <div className="text-sm font-bold text-primary-dark">공지</div>
-                <div className="mt-1 font-bold text-text">{n.title}</div>
-                <div className="mt-1 text-xs text-text-faint">{n.time}</div>
-              </Card>
+              <Link key={n.id} href={`/community/notice/${n.id}`}>
+                <Card className="cursor-pointer transition-shadow hover:shadow-card">
+                  <div className="text-sm font-bold text-primary-dark">공지</div>
+                  <div className="mt-1 font-bold text-text">{n.title}</div>
+                  <div className="mt-1 text-xs text-text-faint">{n.time}</div>
+                </Card>
+              </Link>
             ))}
           </div>
         ) : loading ? (
@@ -187,9 +189,13 @@ function CommunityPageContent() {
           <div className="mb-3 font-extrabold text-text">📋 공지사항</div>
           <div className="flex flex-col divide-y divide-border">
             {NOTICE_POSTS.map((n) => (
-              <div key={n.id} className="py-2 text-[13px] text-text-muted">
+              <Link
+                key={n.id}
+                href={`/community/notice/${n.id}`}
+                className="py-2 text-[13px] text-text-muted transition-colors hover:text-primary-dark"
+              >
                 {n.title}
-              </div>
+              </Link>
             ))}
           </div>
         </Card>
