@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Chip from "@/app/components/ui/Chip";
 import Rating from "@/app/components/ui/Rating";
-import { COUNSELORS, ALL_TAGS, type CounselorTag } from "./mock";
+import { ALL_TAGS, type Counselor, type CounselorTag } from "./mock";
 import { matchScore, isEligible, isNewCounselor, reserveSlotForNewcomer } from "@/lib/matching";
+import { apiFetch } from "@/lib/api";
 
 /**
  * 기본은 "배정순"이다.
@@ -28,9 +29,19 @@ function CounselorsPageContent() {
   const [topic, setTopic] = useState<CounselorTag | null>(null);
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [sort, setSort] = useState<Sort>("match");
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/api/counselors")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Counselor[]) => setCounselors(data))
+      .catch(() => setCounselors([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const list = useMemo(() => {
-    let result = COUNSELORS.filter(isEligible);
+    let result = counselors.filter(isEligible);
     if (topic) result = result.filter((c) => c.tags.includes(topic));
     if (onlineOnly) result = result.filter((c) => c.online);
 
@@ -43,7 +54,7 @@ function CounselorsPageContent() {
       result = reserveSlotForNewcomer(result);
     }
     return result;
-  }, [topic, onlineOnly, sort]);
+  }, [counselors, topic, onlineOnly, sort]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -93,7 +104,9 @@ function CounselorsPageContent() {
         </div>
       </div>
 
-      {list.length === 0 ? (
+      {loading ? (
+        <div className="py-16 text-center text-sm text-text-faint">불러오는 중이에요...</div>
+      ) : list.length === 0 ? (
         <div className="py-16 text-center text-sm text-text-faint">조건에 맞는 상담사가 없어요</div>
       ) : (
         <div className="grid grid-cols-1 gap-3 shell:grid-cols-2">

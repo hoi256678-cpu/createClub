@@ -1,17 +1,79 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
 import Rating from "@/app/components/ui/Rating";
-import AuthLink from "@/app/components/AuthLink";
-import { formatRelativeTime } from "../../community/time";
-import { COUNSELORS } from "../mock";
 import { isNewCounselor } from "@/lib/matching";
+import { apiFetch } from "@/lib/api";
+import { loginHref } from "@/app/components/RequireAuth";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import type { Counselor } from "../mock";
+
+type RoomSummary = { id: string; status: "active" | "ended" | "reported" };
 
 export default function CounselorDetailPage() {
   const params = useParams<{ id: string }>();
-  const counselor = COUNSELORS.find((c) => c.id === params.id);
+  const router = useRouter();
+  const { state: auth } = useAuthStatus();
+  const [counselor, setCounselor] = useState<Counselor | null | undefined>(undefined);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch(`/api/counselors/${params.id}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          setCounselor(null);
+          return;
+        }
+        setCounselor(await res.json());
+      })
+      .catch(() => setCounselor(null));
+  }, [params.id]);
+
+  useEffect(() => {
+    if (auth.phase !== "in") return;
+    apiFetch("/api/counseling/rooms")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rooms: RoomSummary[]) => {
+        const active = rooms.find((r) => r.status === "active");
+        setActiveRoomId(active ? active.id : null);
+      })
+      .catch(() => setActiveRoomId(null));
+  }, [auth.phase]);
+
+  async function apply() {
+    if (auth.phase === "out") {
+      router.push(loginHref(`/counselors/${params.id}`));
+      return;
+    }
+    if (!counselor) return;
+    setApplying(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/counseling/rooms", {
+        method: "POST",
+        body: JSON.stringify({ counselorId: counselor.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "상담 신청에 실패했어요");
+        return;
+      }
+      router.push(`/chat/${data.id}`);
+    } catch {
+      setError("백엔드에 연결할 수 없어요");
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  if (counselor === undefined) {
+    return <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>;
+  }
 
   if (!counselor) {
     return (
@@ -69,40 +131,24 @@ export default function CounselorDetailPage() {
             </span>
           ))}
         </div>
-        <AuthLink
-          href={`/chat?counselor=${counselor.id}`}
-          className="mt-5 block rounded-xl bg-primary-dark py-3 text-center text-sm font-extrabold text-white transition-colors hover:bg-primary-darker"
-        >
-          {counselor.online ? "지금 상담 시작하기 →" : "상담 신청하기 →"}
-        </AuthLink>
-      </Card>
 
-      <Card>
-        <div className="mb-3 font-extrabold text-text">
-          후기 <span className="text-primary-dark">{counselor.reviews.length}</span>
-        </div>
-        {counselor.reviews.length === 0 ? (
-          <div className="py-8 text-center text-[13px] leading-relaxed text-text-faint">
-            아직 후기가 없어요.
-            <br />
-            처음 이야기를 나누는 사람이 되어주실 수 있어요.
-          </div>
+        {activeRoomId ? (
+          <Link
+            href={`/chat/${activeRoomId}`}
+            className="mt-5 block rounded-xl bg-primary-dark py-3 text-center text-sm font-extrabold text-white transition-colors hover:bg-primary-darker"
+          >
+            채팅 상담으로 이동 →
+          </Link>
         ) : (
-          <div className="flex flex-col gap-3">
-            {counselor.reviews.map((r) => (
-              <div key={r.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-bold text-text">{r.authorName}</span>
-                  <Rating value={r.rating} />
-                  <span className="ml-auto text-[11px] text-text-faint">
-                    {formatRelativeTime(r.createdAt)}
-                  </span>
-                </div>
-                <p className="mt-1 text-[13px] leading-relaxed text-text-2">{r.text}</p>
-              </div>
-            ))}
-          </div>
+          <button
+            onClick={apply}
+            disabled={applying}
+            className="mt-5 block w-full rounded-xl bg-primary-dark py-3 text-center text-sm font-extrabold text-white transition-colors hover:bg-primary-darker disabled:opacity-50"
+          >
+            {applying ? "신청 중..." : counselor.online ? "지금 상담 시작하기 →" : "상담 신청하기 →"}
+          </button>
         )}
+        {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
       </Card>
     </div>
   );
