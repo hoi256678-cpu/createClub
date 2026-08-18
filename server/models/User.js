@@ -16,6 +16,13 @@ const userSchema = new mongoose.Schema({
     year: String,
     specialties: [String],
     bio: String,
+    avatarBg: String,
+    avatarColor: String,
+    rating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+    sessionCount: { type: Number, default: 0 },
+    recentSessions: { type: Number, default: 0 },
+    online: { type: Boolean, default: false },
   },
   clientProfile: {
     ageGroup: String,

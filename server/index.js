@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const authRouter = require("./routes/auth");
 const communityRouter = require("./routes/community");
+const { router: counselingRouter } = require("./routes/counseling");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,6 +28,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/community", communityRouter);
+app.use("/api", counselingRouter);
 
 async function start() {
   if (!MONGODB_URI) {
