@@ -178,12 +178,14 @@ export default function MoodPage() {
           </div>
           <div className="flex h-28 gap-1.5">
             {recent.map((e) => (
-              <div key={e.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                <div
-                  className="w-full rounded-t-md bg-primary-dark"
-                  style={{ height: `${(e.score / 5) * 100}%`, opacity: 0.35 + e.score * 0.13 }}
-                  title={`${e.date}: ${e.score}점`}
-                />
+              <div key={e.date} className="flex h-full flex-1 flex-col items-center gap-1">
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full rounded-t-md bg-primary-dark"
+                    style={{ height: `${(e.score / 5) * 100}%`, opacity: 0.35 + e.score * 0.13 }}
+                    title={`${e.date}: ${e.score}점`}
+                  />
+                </div>
                 <span className="text-[9px] text-text-faint">{e.date.slice(8)}</span>
               </div>
             ))}

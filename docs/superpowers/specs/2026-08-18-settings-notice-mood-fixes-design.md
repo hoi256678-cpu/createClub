@@ -11,14 +11,14 @@
 
 ## 1. 설정 토글 버튼 위치 버그
 
-**현재 상태:** `app/(shell)/settings/page.tsx`의 `ToggleRow` 컴포넌트에서 thumb(`<span>`)이 `absolute` + `top-0.5`만 지정되어 있고 `left`가 없다. 이 상태에서 `translate-x-[22px]`(켜짐) / `translate-x-0.5`(꺼짐)로 이동시키는데, `left`가 미지정이면 브라우저가 static position을 계산해서 기준점을 잡고, 이 기준점이 넓은 화면에서는 우연히 맞아떨어지지만 좁은 화면(모바일 폭)에서는 버튼 오른쪽 바깥으로 계산되어 thumb이 트랙 밖에 떠 있는 것처럼 보인다. 실제로 모바일 폭 탭에서 측정한 결과 트랙은 x:545~589px인데 thumb은 x:589~609px로 트랙 오른쪽 경계 밖에 통째로 렌더링됨을 확인했다.
+**현재 상태:** `app/(shell)/settings/page.tsx`의 `ToggleRow` 컴포넌트에서 thumb(`<span>`)이 `absolute` + `top-0.5`만 지정되어 있고 `left`가 없다. 이 상태에서 `translate-x-5`(켜짐) / `translate-x-0.5`(꺼짐)로 이동시키는데, `left`가 미지정이면 브라우저가 static position을 계산해서 기준점을 잡고, 이 기준점이 넓은 화면에서는 우연히 맞아떨어지지만 좁은 화면(모바일 폭)에서는 버튼 오른쪽 바깥으로 계산되어 thumb이 트랙 밖에 떠 있는 것처럼 보인다. 실제로 모바일 폭 탭에서 측정한 결과 트랙은 x:545~589px인데 thumb은 x:589~609px로 트랙 오른쪽 경계 밖에 통째로 렌더링됨을 확인했다.
 
-**수정:** thumb `<span>`에 `left-0.5`를 명시적으로 추가해 기준 위치를 고정한다. `translate-x-[22px]` / `translate-x-0.5`는 그대로 두되, 이제 `left-0.5`(2px)를 기준으로 한 상대 이동이 되어 화면 폭과 무관하게 일관되게 계산된다.
+**수정:** thumb `<span>`에 `left-0.5`를 명시적으로 추가해 기준 위치를 고정한다. `translate-x-5` / `translate-x-0.5`는 그대로 두되, 이제 `left-0.5`(2px)를 기준으로 한 상대 이동이 되어 화면 폭과 무관하게 일관되게 계산된다.
 
 ```tsx
 <span
   className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-    on ? "translate-x-[22px]" : "translate-x-0"
+    on ? "translate-x-5" : "translate-x-0"
   }`}
 />
 ```
