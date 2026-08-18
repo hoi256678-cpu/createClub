@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema({
     sessionCount: { type: Number, default: 0 },
     recentSessions: { type: Number, default: 0 },
     online: { type: Boolean, default: false },
+    verified: { type: Boolean, default: false },
   },
   clientProfile: {
     ageGroup: String,

@@ -26,7 +26,7 @@ function serializeCounselor(user) {
 
 router.get("/counselors", optionalAuth, async (req, res) => {
   try {
-    const counselors = await User.find({ role: "counselor" });
+    const counselors = await User.find({ role: "counselor", "counselorProfile.verified": true });
     res.json(counselors.map(serializeCounselor));
   } catch (err) {
     console.error("상담사 목록 조회 중 오류:", err);
@@ -36,7 +36,11 @@ router.get("/counselors", optionalAuth, async (req, res) => {
 
 router.get("/counselors/:id", optionalAuth, async (req, res) => {
   try {
-    const counselor = await User.findOne({ _id: req.params.id, role: "counselor" });
+    const counselor = await User.findOne({
+      _id: req.params.id,
+      role: "counselor",
+      "counselorProfile.verified": true,
+    });
     if (!counselor) {
       return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
     }
@@ -92,10 +96,6 @@ router.post("/counseling/rooms", requireAuth, async (req, res) => {
     }
 
     const room = await ChatRoom.create({ client: req.user.id, counselor: counselorId });
-
-    counselor.counselorProfile.sessionCount = (counselor.counselorProfile.sessionCount || 0) + 1;
-    counselor.counselorProfile.recentSessions = (counselor.counselorProfile.recentSessions || 0) + 1;
-    await counselor.save();
 
     await room.populate("counselor", "name counselorProfile");
     res.status(201).json(serializeRoom(room));
@@ -196,13 +196,26 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
     if (rating) room.rating = rating;
     await room.save();
 
-    if (rating) {
+    const hadMessages = room.messages.length > 0;
+
+    if (hadMessages || rating) {
       const counselor = await User.findById(room.counselor);
       const p = counselor.counselorProfile;
-      const prevCount = p.ratingCount || 0;
-      const prevAvg = p.rating || 0;
-      p.ratingCount = prevCount + 1;
-      p.rating = (prevAvg * prevCount + rating) / p.ratingCount;
+
+      // 실제 대화(메시지 교환)가 있었던 방만 상담사 통계에 반영한다.
+      // 신청 직후 바로 종료하는 것을 반복해 통계를 조작하는 것을 막기 위함이다.
+      if (hadMessages) {
+        p.sessionCount = (p.sessionCount || 0) + 1;
+        p.recentSessions = (p.recentSessions || 0) + 1;
+      }
+
+      if (rating && hadMessages) {
+        const prevCount = p.ratingCount || 0;
+        const prevAvg = p.rating || 0;
+        p.ratingCount = prevCount + 1;
+        p.rating = (prevAvg * prevCount + rating) / p.ratingCount;
+      }
+
       await counselor.save();
     }
 

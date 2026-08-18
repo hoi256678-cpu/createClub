@@ -31,6 +31,12 @@ export default function ChatRoomPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<"end" | "report" | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  function openModal(next: "end" | "report" | null) {
+    setModalError(null);
+    setModal(next);
+  }
 
   async function loadRoom() {
     try {
@@ -72,29 +78,43 @@ export default function ChatRoomPage() {
 
   async function handleEnd(rating: number | null) {
     if (!room) return;
-    const res = await apiFetch(`/api/counseling/rooms/${room.id}/end`, {
-      method: "POST",
-      body: JSON.stringify(rating ? { rating } : {}),
-    });
-    if (res.ok) {
+    setModalError(null);
+    try {
+      const res = await apiFetch(`/api/counseling/rooms/${room.id}/end`, {
+        method: "POST",
+        body: JSON.stringify(rating ? { rating } : {}),
+      });
+      if (!res.ok) {
+        setModalError("상담 종료에 실패했어요");
+        return;
+      }
       const data = await res.json();
       setRoom({ ...room, status: data.status });
       setModal(null);
       refreshRoomList();
+    } catch {
+      setModalError("백엔드에 연결할 수 없어요");
     }
   }
 
   async function handleReport(reason: string) {
     if (!room || !reason.trim()) return;
-    const res = await apiFetch(`/api/counseling/rooms/${room.id}/report`, {
-      method: "POST",
-      body: JSON.stringify({ reason: reason.trim() }),
-    });
-    if (res.ok) {
+    setModalError(null);
+    try {
+      const res = await apiFetch(`/api/counseling/rooms/${room.id}/report`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      if (!res.ok) {
+        setModalError("신고 접수에 실패했어요");
+        return;
+      }
       const data = await res.json();
       setRoom({ ...room, status: data.status });
       setModal(null);
       refreshRoomList();
+    } catch {
+      setModalError("백엔드에 연결할 수 없어요");
     }
   }
 
@@ -141,7 +161,7 @@ export default function ChatRoomPage() {
                   <button
                     onClick={() => {
                       setMenuOpen(false);
-                      setModal("end");
+                      openModal("end");
                     }}
                     className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-text hover:bg-bg"
                   >
@@ -150,7 +170,7 @@ export default function ChatRoomPage() {
                   <button
                     onClick={() => {
                       setMenuOpen(false);
-                      setModal("report");
+                      openModal("report");
                     }}
                     className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-danger hover:bg-bg"
                   >
@@ -205,8 +225,12 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {modal === "end" && <EndModal onSubmit={handleEnd} onClose={() => setModal(null)} />}
-      {modal === "report" && <ReportModal onSubmit={handleReport} onClose={() => setModal(null)} />}
+      {modal === "end" && (
+        <EndModal onSubmit={handleEnd} onClose={() => openModal(null)} error={modalError} />
+      )}
+      {modal === "report" && (
+        <ReportModal onSubmit={handleReport} onClose={() => openModal(null)} error={modalError} />
+      )}
     </RequireAuth>
   );
 }
@@ -214,9 +238,11 @@ export default function ChatRoomPage() {
 function EndModal({
   onSubmit,
   onClose,
+  error,
 }: {
   onSubmit: (rating: number | null) => void;
   onClose: () => void;
+  error: string | null;
 }) {
   const [rating, setRating] = useState<number | null>(null);
   return (
@@ -236,6 +262,7 @@ function EndModal({
             </button>
           ))}
         </div>
+        {error && <p className="mt-3 text-center text-xs font-semibold text-danger">{error}</p>}
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
@@ -258,9 +285,11 @@ function EndModal({
 function ReportModal({
   onSubmit,
   onClose,
+  error,
 }: {
   onSubmit: (reason: string) => void;
   onClose: () => void;
+  error: string | null;
 }) {
   const [reason, setReason] = useState("");
   return (
@@ -276,6 +305,7 @@ function ReportModal({
           placeholder="어떤 점이 불편했는지 알려주세요"
           className="mt-4 w-full resize-none rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-primary"
         />
+        {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}

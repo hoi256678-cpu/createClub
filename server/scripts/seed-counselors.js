@@ -1,4 +1,5 @@
 require("dotenv").config();
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
@@ -43,7 +44,9 @@ async function seed() {
   await mongoose.connect(process.env.MONGODB_URI);
 
   for (const c of COUNSELORS) {
-    const passwordHash = await bcrypt.hash(`seed-${c.email}`, 10);
+    // 1단계에는 로그인 기능이 없어 이 비밀번호는 실제로 쓰이지 않는다.
+    // 예측 가능한 값 대신 무작위 값을 넣어 둔다.
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
     await User.findOneAndUpdate(
       { email: c.email },
       {
@@ -62,6 +65,7 @@ async function seed() {
           sessionCount: c.sessionCount,
           recentSessions: c.recentSessions,
           online: c.online,
+          verified: true,
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }

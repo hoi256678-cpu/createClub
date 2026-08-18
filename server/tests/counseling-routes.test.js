@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 const mongoose = require("mongoose");
 const request = require("supertest");
+const Report = require("../models/Report");
 
 process.env.JWT_SECRET = "test-secret";
 process.env.FRONTEND_URL = "http://localhost:3000";
@@ -45,6 +46,7 @@ async function createCounselor(overrides = {}) {
       sessionCount: 112,
       recentSessions: 9,
       online: true,
+      verified: true,
       ...overrides.counselorProfile,
     },
   });
@@ -99,6 +101,20 @@ test("client 역할 User의 id로 상담사 상세를 조회하면 404를 반환
   assert.equal(res.status, 404);
 });
 
+test("검증되지 않은 상담사는 목록/상세에 노출되지 않는다", async () => {
+  const unverified = await createCounselor({
+    email: "unverified@test.com",
+    counselorProfile: { verified: false },
+  });
+
+  const listRes = await request(app).get("/api/counselors");
+  assert.equal(listRes.status, 200);
+  assert.equal(listRes.body.length, 0);
+
+  const detailRes = await request(app).get(`/api/counselors/${unverified._id}`);
+  assert.equal(detailRes.status, 404);
+});
+
 async function signupClient(agent, overrides = {}) {
   const payload = {
     name: "내담자",
@@ -111,7 +127,7 @@ async function signupClient(agent, overrides = {}) {
   return payload;
 }
 
-test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성되고 상담사 통계가 증가한다", async () => {
+test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성되지만 상담사 통계는 아직 바뀌지 않는다", async () => {
   const counselor = await createCounselor();
   const agent = request.agent(app);
   await signupClient(agent);
@@ -122,9 +138,10 @@ test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성
   assert.equal(res.body.counselorName, "이지원");
   assert.equal(res.body.status, "active");
 
+  // 통계는 실제 메시지가 오간 뒤 종료할 때 반영된다 (신청 시점에는 반영되지 않음)
   const updated = await User.findById(counselor._id);
-  assert.equal(updated.counselorProfile.sessionCount, 113);
-  assert.equal(updated.counselorProfile.recentSessions, 10);
+  assert.equal(updated.counselorProfile.sessionCount, 112);
+  assert.equal(updated.counselorProfile.recentSessions, 9);
 });
 
 test("비로그인 상태로 상담을 신청하면 401을 반환한다", async () => {
@@ -210,6 +227,7 @@ test("평점과 함께 종료하면 상담사 평점이 갱신되고 방 상태�
   const agent = request.agent(app);
   await signupClient(agent);
   const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
 
   const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({ rating: 5 });
   assert.equal(res.status, 200);
@@ -227,6 +245,7 @@ test("평점 없이 종료하면 상담사 평점은 그대로다", async () => 
   const agent = request.agent(app);
   await signupClient(agent);
   const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
 
   const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({});
   assert.equal(res.status, 200);
@@ -236,6 +255,37 @@ test("평점 없이 종료하면 상담사 평점은 그대로다", async () => 
   const updated = await User.findById(counselor._id);
   assert.equal(updated.counselorProfile.rating, 4.0);
   assert.equal(updated.counselorProfile.ratingCount, 1);
+});
+
+test("메시지를 보낸 뒤 종료하면 (평점 없이도) 상담사 sessionCount/recentSessions가 증가한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({});
+  assert.equal(res.status, 200);
+
+  const updated = await User.findById(counselor._id);
+  assert.equal(updated.counselorProfile.sessionCount, 113);
+  assert.equal(updated.counselorProfile.recentSessions, 10);
+});
+
+test("메시지 없이 평점과 함께 종료해도 상담사 통계와 평점이 바뀌지 않는다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({ rating: 5 });
+  assert.equal(res.status, 200);
+
+  const updated = await User.findById(counselor._id);
+  assert.equal(updated.counselorProfile.rating, 4.9);
+  assert.equal(updated.counselorProfile.ratingCount, 38);
+  assert.equal(updated.counselorProfile.sessionCount, 112);
+  assert.equal(updated.counselorProfile.recentSessions, 9);
 });
 
 test("종료 후 다시 신청할 수 있다 (배정 해제됨)", async () => {
@@ -296,4 +346,70 @@ test("종료된 방에는 메시지를 보낼 수 없다", async () => {
 
   const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕" });
   assert.equal(res.status, 400);
+});
+
+test("신고해도 상담사 평점은 바뀌지 않고, Report 문서가 올바른 필드로 생성된다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const beforeReport = await User.findById(counselor._id);
+
+  const reportRes = await agent
+    .post(`/api/counseling/rooms/${createRes.body.id}/report`)
+    .send({ reason: "부적절한 발언을 했어요" });
+  assert.equal(reportRes.status, 200);
+
+  const afterReport = await User.findById(counselor._id);
+  assert.equal(afterReport.counselorProfile.rating, beforeReport.counselorProfile.rating);
+  assert.equal(afterReport.counselorProfile.ratingCount, beforeReport.counselorProfile.ratingCount);
+
+  const report = await Report.findOne({ room: createRes.body.id });
+  assert.ok(report, "Report 문서가 생성되어야 한다");
+  const clientUser = await User.findOne({ email: "client@test.com" });
+  assert.equal(report.reporter.toString(), clientUser._id.toString());
+  assert.equal(report.room.toString(), createRes.body.id);
+  assert.equal(report.counselor.toString(), counselor._id.toString());
+  assert.equal(report.reason, "부적절한 발언을 했어요");
+});
+
+test("방 소유자가 아닌 클라이언트가 메시지를 보내면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const otherAgent = request.agent(app);
+  await signupClient(otherAgent, { email: "other-client@test.com" });
+  const res = await otherAgent
+    .post(`/api/counseling/rooms/${createRes.body.id}/messages`)
+    .send({ text: "몰래 보내는 메시지" });
+  assert.equal(res.status, 403);
+});
+
+test("방 소유자가 아닌 클라이언트가 종료를 요청하면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const otherAgent = request.agent(app);
+  await signupClient(otherAgent, { email: "other-client@test.com" });
+  const res = await otherAgent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({});
+  assert.equal(res.status, 403);
+});
+
+test("방 소유자가 아닌 클라이언트가 신고를 요청하면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const otherAgent = request.agent(app);
+  await signupClient(otherAgent, { email: "other-client@test.com" });
+  const res = await otherAgent
+    .post(`/api/counseling/rooms/${createRes.body.id}/report`)
+    .send({ reason: "부적절한 발언을 했어요" });
+  assert.equal(res.status, 403);
 });

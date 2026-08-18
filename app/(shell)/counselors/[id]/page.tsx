@@ -9,6 +9,7 @@ import { isNewCounselor } from "@/lib/matching";
 import { apiFetch } from "@/lib/api";
 import { loginHref } from "@/app/components/RequireAuth";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { useChatRooms } from "@/app/hooks/useChatRooms";
 import type { Counselor } from "../mock";
 
 type RoomSummary = { id: string; status: "active" | "ended" | "reported" };
@@ -17,6 +18,7 @@ export default function CounselorDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { state: auth } = useAuthStatus();
+  const { refresh: refreshRoomList } = useChatRooms();
   const [counselor, setCounselor] = useState<Counselor | null | undefined>(undefined);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
@@ -64,6 +66,7 @@ export default function CounselorDetailPage() {
         return;
       }
       router.push(`/chat/${data.id}`);
+      refreshRoomList();
     } catch {
       setError("백엔드에 연결할 수 없어요");
     } finally {
