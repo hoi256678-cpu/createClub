@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setLoggedOut = useCallback(() => commit({ phase: "out" }), [commit]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 세션 조회, setState는 refresh() 내부 await 이후에 일어난다
     refresh();
 
     // 뒤로/앞으로가기로 bfcache에서 복원되거나, 다른 탭에서 로그아웃한 뒤

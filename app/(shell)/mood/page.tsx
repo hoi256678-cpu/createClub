@@ -49,6 +49,7 @@ export default function MoodPage() {
 
   useEffect(() => {
     const loaded = readJSON<MoodEntry[]>(KEY, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
     setEntries(loaded);
     setShare(readJSON<boolean>(SHARE_KEY, false));
     const today = loaded.find((e) => e.date === todayKey());

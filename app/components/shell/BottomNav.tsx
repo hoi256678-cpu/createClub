@@ -1,7 +1,6 @@
 "use client";
 
 import AuthLink from "@/app/components/AuthLink";
-import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { NAV_ITEMS, isNavActive } from "./nav-items";
 
 export default function BottomNav({ pathname }: { pathname: string }) {

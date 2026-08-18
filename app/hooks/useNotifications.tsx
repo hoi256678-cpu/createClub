@@ -30,6 +30,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // localStorage는 렌더 중에 읽으면 서버/클라이언트 HTML이 달라져 하이드레이션이 깨진다.
   // 반드시 마운트 후 effect에서 읽는다.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
     setReadIds(readJSON<number[]>(STORAGE_KEY, []));
   }, []);
 

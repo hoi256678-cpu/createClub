@@ -31,6 +31,7 @@ export function ChatRoomsProvider({ children }: { children: ReactNode }) {
 
   // 하이드레이션 불일치를 피하려고 마운트 후에 복원한다.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
     setReadIds(readJSON<string[]>(READ_KEY, []));
     setSent(readJSON<SentMap>(SENT_KEY, {}));
   }, []);

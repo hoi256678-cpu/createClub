@@ -29,6 +29,7 @@ export function useTestHistory() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
     setRecords(readJSON<TestRecord[]>(KEY, []));
     setLoaded(true);
   }, []);
