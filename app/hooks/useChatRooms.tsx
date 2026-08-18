@@ -9,75 +9,54 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CHAT_ROOMS, type ChatRoom, type ChatMessage } from "@/app/(shell)/chat/mock";
-import { readJSON, writeJSON } from "@/lib/storage";
+import { apiFetch } from "@/lib/api";
 
-const READ_KEY = "somit:chat:read";
-const SENT_KEY = "somit:chat:sent";
-
-type SentMap = Record<string, ChatMessage[]>;
+export type ChatRoom = {
+  id: string;
+  counselorId: string;
+  counselorName: string;
+  counselorMajor: string;
+  avatarBg: string;
+  avatarColor: string;
+  status: "active" | "ended" | "reported";
+  lastMessage: string | null;
+  createdAt: string;
+};
 
 type ChatRoomsContextValue = {
   rooms: ChatRoom[];
-  markRoomRead: (id: string) => void;
-  sendMessage: (id: string, text: string) => void;
+  loading: boolean;
+  /** 종료/신고 등으로 목록이 바뀐 뒤 다시 불러올 때 쓴다. */
+  refresh: () => Promise<void>;
 };
 
 const ChatRoomsContext = createContext<ChatRoomsContextValue | null>(null);
 
+async function fetchChatRooms(
+  setRooms: (rooms: ChatRoom[]) => void,
+  setLoading: (loading: boolean) => void,
+) {
+  try {
+    const res = await apiFetch("/api/counseling/rooms");
+    setRooms(res.ok ? await res.json() : []);
+  } catch {
+    setRooms([]);
+  } finally {
+    setLoading(false);
+  }
+}
+
 export function ChatRoomsProvider({ children }: { children: ReactNode }) {
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [sent, setSent] = useState<SentMap>({});
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 하이드레이션 불일치를 피하려고 마운트 후에 복원한다.
+  const refresh = useCallback(() => fetchChatRooms(setRooms, setLoading), []);
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
-    setReadIds(readJSON<string[]>(READ_KEY, []));
-    setSent(readJSON<SentMap>(SENT_KEY, {}));
+    fetchChatRooms(setRooms, setLoading);
   }, []);
 
-  const markRoomRead = useCallback((id: string) => {
-    setReadIds((prev) => {
-      if (prev.includes(id)) return prev;
-      const next = [...prev, id];
-      writeJSON(READ_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const sendMessage = useCallback((id: string, text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setSent((prev) => {
-      const mine = prev[id] ?? [];
-      // 방의 기존 메시지 개수와 무관하게 항상 유일한 id를 만든다.
-      const message: ChatMessage = { id: Date.now(), from: "me", text: trimmed, time: "방금" };
-      const next = { ...prev, [id]: [...mine, message] };
-      writeJSON(SENT_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const rooms = useMemo<ChatRoom[]>(
-    () =>
-      CHAT_ROOMS.map((room) => {
-        const mine = sent[room.id] ?? [];
-        const messages = mine.length ? [...room.messages, ...mine] : room.messages;
-        const last = messages[messages.length - 1];
-        return {
-          ...room,
-          messages,
-          lastMessage: last ? last.text : room.lastMessage,
-          unread: readIds.includes(room.id) ? 0 : room.unread,
-        };
-      }),
-    [readIds, sent],
-  );
-
-  const value = useMemo(
-    () => ({ rooms, markRoomRead, sendMessage }),
-    [rooms, markRoomRead, sendMessage],
-  );
+  const value = useMemo(() => ({ rooms, loading, refresh }), [rooms, loading, refresh]);
 
   return <ChatRoomsContext.Provider value={value}>{children}</ChatRoomsContext.Provider>;
 }
