@@ -52,6 +52,9 @@ router.get("/counselors/:id", optionalAuth, async (req, res) => {
 
 function serializeRoom(room) {
   const counselor = room.counselor;
+  if (!counselor || typeof counselor.name !== "string") {
+    throw new Error("serializeRoom: room.counselor가 populate되지 않았습니다");
+  }
   const p = counselor.counselorProfile || {};
   const last = room.messages.length ? room.messages[room.messages.length - 1] : null;
   return {
