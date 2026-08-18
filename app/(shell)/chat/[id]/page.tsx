@@ -30,6 +30,7 @@ export default function ChatRoomPage() {
   const [input, setInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<"end" | "report" | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   async function loadRoom() {
     try {
@@ -50,13 +51,22 @@ export default function ChatRoomPage() {
     if (!room || !input.trim() || room.status !== "active") return;
     const text = input.trim();
     setInput("");
-    const res = await apiFetch(`/api/counseling/rooms/${room.id}/messages`, {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-    if (res.ok) {
+    setSendError(null);
+    try {
+      const res = await apiFetch(`/api/counseling/rooms/${room.id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        setInput(text);
+        setSendError("메시지 전송에 실패했어요");
+        return;
+      }
       const messages = await res.json();
       setRoom({ ...room, messages, lastMessage: text });
+    } catch {
+      setInput(text);
+      setSendError("백엔드에 연결할 수 없어요");
     }
   }
 
@@ -167,6 +177,8 @@ export default function ChatRoomPage() {
             </div>
           ))}
         </div>
+
+        {sendError && <p className="px-5 pt-2 text-xs font-semibold text-danger">{sendError}</p>}
 
         <div className="flex items-end gap-2 border-t border-border bg-surface px-5 py-3">
           <textarea
