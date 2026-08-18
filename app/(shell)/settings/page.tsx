@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import SystemStatus from "@/app/components/SystemStatus";
 import CrisisNotice from "@/app/components/CrisisNotice";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { apiFetch } from "@/lib/api";
@@ -69,13 +68,9 @@ export default function SettingsPage() {
       <CrisisNotice />
 
       <SectionCard title="앱 정보">
-        <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+        <div className="flex items-center gap-3 px-5 py-3">
           <span className="flex-1 text-sm font-semibold text-text">버전</span>
           <span className="text-xs text-text-muted">1.0.0 (Web)</span>
-        </div>
-        <div className="flex items-center gap-3 px-5 py-3">
-          <span className="flex-1 text-sm font-semibold text-text">백엔드 연결 상태</span>
-          <SystemStatus />
         </div>
       </SectionCard>
 
