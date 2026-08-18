@@ -176,9 +176,9 @@ export default function MoodPage() {
               <span className="ml-auto text-xs text-text-muted">평균 {average.toFixed(1)} / 5</span>
             )}
           </div>
-          <div className="flex h-28 items-end gap-1.5">
+          <div className="flex h-28 gap-1.5">
             {recent.map((e) => (
-              <div key={e.date} className="flex flex-1 flex-col items-center gap-1">
+              <div key={e.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
                 <div
                   className="w-full rounded-t-md bg-primary-dark"
                   style={{ height: `${(e.score / 5) * 100}%`, opacity: 0.35 + e.score * 0.13 }}
