@@ -75,6 +75,15 @@ test("admin이 아닌 로그인 사용자가 사용자 목록을 조회하면 40
   assert.equal(res.status, 403);
 });
 
+test("JWT에는 admin 클레임이 있지만 실제 DB role이 client인 사용자는 관리자 라우트에서 403을 반환한다", async () => {
+  const client = await User.create({ name: "위조클레임", email: "forged@test.com", passwordHash: "x", role: "client" });
+  const forgedToken = signToken({ id: client._id.toString(), role: "admin" });
+  const res = await request(app)
+    .get("/api/admin/users")
+    .set("Cookie", `${COOKIE_NAME}=${forgedToken}`);
+  assert.equal(res.status, 403);
+});
+
 test("admin은 전체 사용자 목록을 조회할 수 있고 passwordHash는 없다", async () => {
   const admin = await createAdmin();
   await User.create({ name: "내담자", email: "c1@test.com", passwordHash: "x", role: "client" });
@@ -123,6 +132,40 @@ test("존재하지 않는 사용자를 정지시키면 404를 반환한다", asy
     .post(`/api/admin/users/${missingId}/suspend`)
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
+});
+
+test("admin 계정을 정지시키려 하면 400을 반환하고 정지되지 않는다", async () => {
+  const admin = await createAdmin();
+  const targetAdmin = await createAdmin({ email: "target-admin@test.com" });
+
+  const res = await request(app)
+    .post(`/api/admin/users/${targetAdmin._id}/suspend`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, { error: "관리자 계정은 정지할 수 없어요" });
+
+  const updated = await User.findById(targetAdmin._id);
+  assert.equal(updated.suspended, false);
+});
+
+test("admin이 client를 정지시키면, 정지된 client는 올바른 비밀번호로도 로그인이 403으로 차단된다", async () => {
+  const admin = await createAdmin();
+  const agent = request.agent(app);
+  const payload = await signupClient(agent, { email: "to-suspend@test.com" });
+  await agent.post("/api/auth/logout");
+
+  const client = await User.findOne({ email: payload.email });
+  const suspendRes = await request(app)
+    .post(`/api/admin/users/${client._id}/suspend`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(suspendRes.status, 200);
+  assert.deepEqual(suspendRes.body, { suspended: true });
+
+  const loginRes = await request(app)
+    .post("/api/auth/login")
+    .send({ email: payload.email, password: payload.password });
+  assert.equal(loginRes.status, 403);
+  assert.deepEqual(loginRes.body, { error: "정지된 계정이에요. 관리자에게 문의해주세요." });
 });
 
 async function createPost(overrides = {}) {

@@ -1,4 +1,5 @@
 const { verifyToken, COOKIE_NAME } = require("../lib/token");
+const User = require("../models/User");
 
 function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE_NAME];
@@ -25,11 +26,17 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ error: "관리자만 접근할 수 있어요" });
+async function requireAdmin(req, res, next) {
+  try {
+    const user = req.user?.id ? await User.findById(req.user.id) : null;
+    if (user?.role !== "admin") {
+      return res.status(403).json({ error: "관리자만 접근할 수 있어요" });
+    }
+    next();
+  } catch (err) {
+    console.error("관리자 권한 확인 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
-  next();
 }
 
 module.exports = { requireAuth, optionalAuth, requireAdmin };

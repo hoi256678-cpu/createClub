@@ -115,6 +115,16 @@ test("검증되지 않은 상담사는 목록/상세에 노출되지 않는다",
   assert.equal(detailRes.status, 404);
 });
 
+test("정지된 상담사는 검증 여부와 관계없이 목록에 노출되지 않는다", async () => {
+  const suspended = await createCounselor({ email: "suspended@test.com" });
+  suspended.suspended = true;
+  await suspended.save();
+
+  const res = await request(app).get("/api/counselors");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 0);
+});
+
 async function signupClient(agent, overrides = {}) {
   const payload = {
     name: "내담자",
@@ -175,6 +185,18 @@ test("존재하지 않는 상담사에게 신청하면 404를 반환한다", asy
   const missingId = new mongoose.Types.ObjectId().toString();
   const res = await agent.post("/api/counseling/rooms").send({ counselorId: missingId });
   assert.equal(res.status, 404);
+});
+
+test("정지된 상담사에게 상담을 신청하면 404를 반환한다", async () => {
+  const suspended = await createCounselor({ email: "suspended2@test.com" });
+  suspended.suspended = true;
+  await suspended.save();
+
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const res = await agent.post("/api/counseling/rooms").send({ counselorId: suspended._id.toString() });
+  assert.equal(res.status, 404);
+  assert.deepEqual(res.body, { error: "상담사를 찾을 수 없어요" });
 });
 
 test("상담사가 자기 자신에게 상담을 신청하면 400을 반환한다", async () => {

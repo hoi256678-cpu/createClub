@@ -26,7 +26,11 @@ function serializeCounselor(user) {
 
 router.get("/counselors", optionalAuth, async (req, res) => {
   try {
-    const counselors = await User.find({ role: "counselor", "counselorProfile.verified": true });
+    const counselors = await User.find({
+      role: "counselor",
+      "counselorProfile.verified": true,
+      suspended: { $ne: true },
+    });
     res.json(counselors.map(serializeCounselor));
   } catch (err) {
     console.error("상담사 목록 조회 중 오류:", err);
@@ -121,6 +125,7 @@ router.get("/counselors/:id", optionalAuth, async (req, res) => {
       _id: req.params.id,
       role: "counselor",
       "counselorProfile.verified": true,
+      suspended: { $ne: true },
     });
     if (!counselor) {
       return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
@@ -179,7 +184,7 @@ router.post("/counseling/rooms", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "자기 자신에게는 상담을 신청할 수 없어요" });
     }
 
-    const counselor = await User.findOne({ _id: counselorId, role: "counselor" });
+    const counselor = await User.findOne({ _id: counselorId, role: "counselor", suspended: { $ne: true } });
     if (!counselor) {
       return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
     }
