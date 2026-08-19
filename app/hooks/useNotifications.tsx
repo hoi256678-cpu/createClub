@@ -12,6 +12,7 @@ import {
 import { NOTIFICATIONS, type NotificationItem } from "@/app/(shell)/notifications/mock";
 import { formatRelativeTime } from "@/app/(shell)/community/time";
 import { readJSON, writeJSON } from "@/lib/storage";
+import { useAuthStatus } from "./useAuthStatus";
 import { useChatRooms } from "./useChatRooms";
 
 const STORAGE_KEY = "somit:notifications:read";
@@ -29,6 +30,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // 읽은 mock 알림 id 목록만 저장한다. 채팅 알림은 useChatRooms의 읽음상태를 그대로 쓴다.
   const [readIds, setReadIds] = useState<number[]>([]);
   const { rooms, isRoomUnread, markRoomRead } = useChatRooms();
+  const { state: auth } = useAuthStatus();
+  // mock 알림(상담 매칭/심리검사 결과/환영)은 client 전용 시나리오라 상담사 계정에는 보여주지 않는다.
+  const isCounselor = auth.phase === "in" && auth.role === "counselor";
+  const mockNotifications = useMemo(() => (isCounselor ? [] : NOTIFICATIONS), [isCounselor]);
 
   // localStorage는 렌더 중에 읽으면 서버/클라이언트 HTML이 달라져 하이드레이션이 깨진다.
   // 반드시 마운트 후 effect에서 읽는다.
@@ -61,9 +66,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
 
   const markAllRead = useCallback(() => {
-    persist(NOTIFICATIONS.map((n) => n.id as number));
+    persist(mockNotifications.map((n) => n.id as number));
     rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
-  }, [persist, rooms, isRoomUnread, markRoomRead]);
+  }, [persist, rooms, isRoomUnread, markRoomRead, mockNotifications]);
 
   const chatItems = useMemo<NotificationItem[]>(
     () =>
@@ -84,9 +89,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const items = useMemo<NotificationItem[]>(
     () => [
       ...chatItems,
-      ...NOTIFICATIONS.map((n) => ({ ...n, unread: n.unread && !readIds.includes(n.id as number) })),
+      ...mockNotifications.map((n) => ({ ...n, unread: n.unread && !readIds.includes(n.id as number) })),
     ],
-    [chatItems, readIds],
+    [chatItems, readIds, mockNotifications],
   );
 
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
