@@ -27,13 +27,33 @@
 
 | Method | Path | 변경 내용 |
 |---|---|---|
-| GET | `/api/counseling/rooms` | 뷰어 role에 따라 필터 기준 전환: `role==="client"`면 `client===me`, `role==="counselor"`면 `counselor===me`. `?status=active` 쿼리로 진행중만 필터(생략 시 전체, 종료/신고 포함). 응답 항목에 `lastMessageAt`(마지막 메시지 시각, 없으면 방 생성 시각), `lastMessageFrom`(`"client"` \| `"counselor"` \| `null`) 필드 추가 — 프론트가 방을 열지 않고도 안읽음 여부를 계산하기 위함 |
+| GET | `/api/counseling/rooms` | `$or: [{client: me}, {counselor: me}]`로 조회(내가 어느 쪽이든 참여한 방). `?status=active` 쿼리로 진행중만 필터(생략 시 전체, 종료/신고 포함). 응답 항목에 `lastMessageAt`(마지막 메시지 시각, 없으면 방 생성 시각), `lastMessageFrom`(`"client"` \| `"counselor"` \| `null`) 필드 추가 — 프론트가 방을 열지 않고도 안읽음 여부를 계산하기 위함. **아래 "응답 필드 보정" 참고** |
 | GET | `/api/counseling/rooms/:id` | 403 체크를 `client===me`에서 `(client===me \|\| counselor===me)`로 확장 |
 | POST | `/api/counseling/rooms/:id/messages` | 403 체크 동일 확장. `from`은 하드코딩 대신 요청자가 room의 `client`인지 `counselor`인지로 자동 결정. `status!=="active"`면 여전히 400 |
 | POST | `/api/counseling/rooms/:id/end` | **양쪽 다 호출 가능하도록 확장.** 요청자가 `client===me`면 기존과 동일(`rating` 1~5 선택 가능, 있으면 상담사 rating running average 갱신). 요청자가 `counselor===me`면 `rating`은 무시(있어도 반영 안 함) — `status:"ended"`, `endedAt`만 기록. 둘 다 아니면 403. 이미 `active`가 아니면 400 |
 | POST | `/api/counseling/rooms/:id/report` | 변경 없음 — 계속 client 전용 |
 
 에러 규칙은 1단계와 동일하게 유지 (403/400/404), 위 표에 명시한 확장만 추가된다.
+
+### 응답 필드 보정 (1단계 스펙 대비 정정)
+
+1단계 `serializeRoom`은 `counselorId`/`counselorName`/`counselorMajor`/`avatarBg`/`avatarColor`처럼 "상담사 정보"를 고정 필드명으로 반환했다. 클라이언트가 보는 화면에선 문제없었지만(항상 상대방=상담사), **상담사가 자기 채팅함을 보면 상대방은 내담자**이고, 내담자 `User`에는애초에 `avatarBg`/`avatarColor`/`major`(= `counselorProfile`의 필드) 자체가 없다. 그대로 두면 상담사 화면에서 정보가 비거나 잘못 나온다.
+
+그래서 응답 필드를 **뷰어 기준 상대방(other party) 필드**로 바꾼다:
+
+```
+{
+  id, status, createdAt, lastMessage, lastMessageAt, lastMessageFrom,
+  otherPartyId, otherPartyName,
+  otherPartyMajor,       // 상대방이 상담사일 때만 값이 있음, 상대방이 내담자면 ""
+  otherPartyAvatarBg,    // 상대방이 상담사일 때만 counselorProfile 값, 아니면 기본값 "#e8eff9"
+  otherPartyAvatarColor, // 위와 동일, 기본값 "#7a9cc5"
+}
+```
+
+`serializeRoom(room, viewerId)`로 시그니처를 바꿔서, `room.client._id`가 `viewerId`와 같으면 `counselor` 쪽을, 다르면 `client` 쪽을 "상대방"으로 골라 위 필드를 채운다. 상대방이 내담자(`client`)면 `counselorProfile`이 없으므로 `major`는 빈 문자열, 아바타는 상담사 목록과 동일한 기본값(`#e8eff9`/`#7a9cc5`)을 쓴다. `GET /rooms`, `GET /rooms/:id` 둘 다 이 로직을 쓰려면 두 쿼리 모두 `client`와 `counselor`를 **양쪽 다 populate**해야 한다(1단계는 `counselor`만 populate했음).
+
+프론트엔드 `ChatRoom`/`RoomDetail` 타입의 `counselorId`/`counselorName`/`counselorMajor`/`avatarBg`/`avatarColor` 필드명도 `otherPartyId`/`otherPartyName`/`otherPartyMajor`/`otherPartyAvatarBg`/`otherPartyAvatarColor`로 함께 바뀐다 (아래 프론트엔드 섹션에 반영).
 
 ## 프론트엔드 변경
 
@@ -45,7 +65,7 @@
 
 - 방 목록 조회를 5초 간격 `setInterval`로 재조회. `document.visibilityState !== "visible"`이면 폴링 정지, 다시 보이면 즉시 1회 조회 후 재개
 - 읽음상태를 localStorage(`somit:chat:read`, 방 id → 마지막으로 읽은 시각 ISO 문자열)로 재도입. `unreadCount`(방별 `lastMessageFrom`이 "내가 아닌 쪽"이고 `lastMessageAt`이 저장된 읽은시각보다 최신인 방의 개수)와 `markRoomRead(id)`를 새로 노출
-- `ChatRoom` 타입에 `lastMessageAt`, `lastMessageFrom` 추가
+- `ChatRoom` 타입에 `lastMessageAt`, `lastMessageFrom` 추가하고, `counselorId`/`counselorName`/`counselorMajor`/`avatarBg`/`avatarColor`를 `otherPartyId`/`otherPartyName`/`otherPartyMajor`/`otherPartyAvatarBg`/`otherPartyAvatarColor`로 이름 변경 ("응답 필드 보정" 참고)
 
 ### `app/(shell)/chat/page.tsx` (목록)
 
