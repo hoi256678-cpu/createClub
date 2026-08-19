@@ -67,6 +67,10 @@ router.post("/login", async (req, res) => {
       return res.status(401).json(genericError);
     }
 
+    if (user.suspended) {
+      return res.status(403).json({ error: "정지된 계정이에요. 관리자에게 문의해주세요." });
+    }
+
     const token = signToken({ id: user._id.toString(), role: user.role });
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
     res.json({ name: user.name, role: user.role });

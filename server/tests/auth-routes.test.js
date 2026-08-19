@@ -181,3 +181,18 @@ test("비밀번호가 문자열이 아니면(JSON number) 400을 반환한다", 
   assert.equal(res.status, 400);
   assert.equal(res.body.error, "비밀번호는 4자 이상이어야 합니다");
 });
+
+test("정지된 계정으로 로그인하면 403을 반환한다", async () => {
+  await request(app)
+    .post("/api/auth/signup")
+    .send({ name: "정지될사람", email: "suspended@test.com", password: "1234", role: "client" });
+
+  const User = require("../models/User");
+  await User.findOneAndUpdate({ email: "suspended@test.com" }, { suspended: true });
+
+  const res = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "suspended@test.com", password: "1234" });
+  assert.equal(res.status, 403);
+  assert.equal(res.body.error, "정지된 계정이에요. 관리자에게 문의해주세요.");
+});
