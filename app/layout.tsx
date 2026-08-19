@@ -5,6 +5,7 @@ import { AuthProvider } from "@/app/hooks/useAuthStatus";
 import { NotificationsProvider } from "@/app/hooks/useNotifications";
 import { ChatRoomsProvider } from "@/app/hooks/useChatRooms";
 import { PostCountsProvider } from "@/app/hooks/usePostCounts";
+import { TestHistoryProvider } from "@/app/hooks/useTestHistory";
 
 const suit = localFont({
   src: [
@@ -42,7 +43,9 @@ export default function RootLayout({
         <AuthProvider>
           <ChatRoomsProvider>
             <NotificationsProvider>
-              <PostCountsProvider>{children}</PostCountsProvider>
+              <PostCountsProvider>
+                <TestHistoryProvider>{children}</TestHistoryProvider>
+              </PostCountsProvider>
             </NotificationsProvider>
           </ChatRoomsProvider>
         </AuthProvider>
