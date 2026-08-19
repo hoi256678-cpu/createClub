@@ -3,10 +3,15 @@
 import Link from "next/link";
 import AuthLink from "@/app/components/AuthLink";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { useChatRooms } from "@/app/hooks/useChatRooms";
 import { NAV_ITEMS, isNavActive } from "./nav-items";
 
 export default function Sidebar({ pathname }: { pathname: string }) {
   const { state: auth } = useAuthStatus();
+  const { unreadCount } = useChatRooms();
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => !(auth.phase === "in" && item.hideForRole === auth.role),
+  );
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col border-r border-border bg-surface shell:flex">
@@ -22,7 +27,7 @@ export default function Sidebar({ pathname }: { pathname: string }) {
 
       <nav className="flex-1 overflow-y-auto p-3">
         <div className="mb-1 px-2 text-[10px] font-bold tracking-wider text-text-faint">메인</div>
-        {NAV_ITEMS.map(({ href, label, requiresAuth, Icon }) => {
+        {visibleNavItems.map(({ href, label, requiresAuth, Icon }) => {
           const active = isNavActive(pathname, href);
           return (
             <AuthLink
@@ -35,7 +40,12 @@ export default function Sidebar({ pathname }: { pathname: string }) {
                   : "text-text-muted hover:bg-primary-light hover:text-primary-dark"
               }`}
             >
-              <Icon className="h-[18px] w-[18px]" />
+              <span className="relative">
+                <Icon className="h-[18px] w-[18px]" />
+                {href === "/chat" && unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-danger" />
+                )}
+              </span>
               {label}
             </AuthLink>
           );

@@ -48,6 +48,7 @@ export type NavItem = {
   href: string;
   label: string;
   requiresAuth: boolean;
+  hideForRole?: "counselor" | "client";
   Icon: (props: { className?: string }) => React.JSX.Element;
 };
 
@@ -55,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "홈", requiresAuth: false, Icon: HomeIcon },
   { href: "/community", label: "커뮤니티", requiresAuth: false, Icon: CommunityIcon },
   { href: "/chat", label: "채팅 상담", requiresAuth: true, Icon: ChatIcon },
-  { href: "/test", label: "심리검사", requiresAuth: false, Icon: TestIcon },
+  { href: "/test", label: "심리검사", requiresAuth: false, hideForRole: "counselor", Icon: TestIcon },
   { href: "/mypage", label: "마이페이지", requiresAuth: true, Icon: MypageIcon },
 ];
 
