@@ -34,7 +34,7 @@ export default function TopBar({ title }: { title: string }) {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-10 flex h-[60px] items-center gap-4 border-b border-border bg-surface px-4 shell:px-8">
+    <header className="sticky top-0 z-40 flex h-[60px] items-center gap-4 border-b border-border bg-surface px-4 shell:px-8">
       <div className="flex-1 text-[18px] font-extrabold text-text">{title}</div>
       <div className="flex items-center gap-3">
         {auth.phase !== "out" && (
