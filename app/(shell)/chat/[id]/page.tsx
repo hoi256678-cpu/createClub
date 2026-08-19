@@ -183,7 +183,7 @@ export default function ChatRoomPage() {
     <RequireAuth>
       <div className="flex h-[calc(100dvh-200px)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shell:h-[calc(100dvh-160px)]">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3">
-          <button onClick={() => router.push("/chat")} className="text-text-muted">
+          <button onClick={() => router.back()} className="text-text-muted">
             ←
           </button>
           <div
