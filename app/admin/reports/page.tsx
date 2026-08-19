@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { formatRelativeTime } from "@/app/(shell)/community/time";
 
 type AdminReport = {
   id: string;
@@ -72,7 +73,8 @@ export default function AdminReportsPage() {
                   <span className="rounded-full bg-[#fff0f0] px-2 py-0.5 text-xs font-bold text-danger">미처리</span>
                 )}
               </div>
-              <p className="mb-3 text-sm text-text-2">{r.reason}</p>
+              <p className="mb-1 text-sm text-text-2">{r.reason}</p>
+              <p className="mb-3 text-[11px] text-text-faint">{formatRelativeTime(r.createdAt)}</p>
               {r.status === "open" && (
                 <button
                   onClick={() => markReviewed(r.id)}

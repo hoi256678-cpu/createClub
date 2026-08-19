@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { formatRelativeTime } from "@/app/(shell)/community/time";
 
 type AdminUser = {
   id: string;
@@ -78,6 +79,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2.5">이메일</th>
                 <th className="px-4 py-2.5">역할</th>
                 <th className="px-4 py-2.5">상태</th>
+                <th className="px-4 py-2.5">가입일</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -94,6 +96,7 @@ export default function AdminUsersPage() {
                       <span className="rounded-full bg-[#eafaf5] px-2 py-0.5 text-xs font-bold text-success">정상</span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-text-faint">{formatRelativeTime(u.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     {u.role !== "admin" && (
                       <button
