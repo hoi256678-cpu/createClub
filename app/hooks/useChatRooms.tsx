@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -28,6 +29,7 @@ export type ChatRoom = {
   lastMessage: string | null;
   lastMessageAt: string;
   lastMessageFrom: "client" | "counselor" | null;
+  viewerSide: "client" | "counselor";
   createdAt: string;
 };
 
@@ -37,21 +39,29 @@ type ChatRoomsContextValue = {
   unreadCount: number;
   /** 종료/신고 등으로 목록이 바뀐 뒤 다시 불러올 때 쓴다. */
   refresh: () => Promise<void>;
-  markRoomRead: (id: string) => void;
+  markRoomRead: (id: string, lastMessageAt: string) => void;
   isRoomUnread: (room: ChatRoom) => boolean;
 };
 
 const ChatRoomsContext = createContext<ChatRoomsContextValue | null>(null);
 
 async function fetchChatRooms(
-  setRooms: (rooms: ChatRoom[]) => void,
+  setRooms: (updater: (prev: ChatRoom[]) => ChatRoom[]) => void,
   setLoading: (loading: boolean) => void,
+  isFirstLoad: boolean,
 ) {
   try {
     const res = await apiFetch("/api/counseling/rooms");
-    setRooms(res.ok ? await res.json() : []);
+    if (res.ok) {
+      const data = await res.json();
+      setRooms(() => data);
+    } else if (isFirstLoad) {
+      // 최초 로드 실패는 빈 목록으로 보여주는 게 맞다. 폴링 중 실패(콜드스타트 등)는
+      // 이미 불러온 목록을 그대로 유지해서 화면이 갑자기 비지 않도록 한다.
+      setRooms(() => []);
+    }
   } catch {
-    setRooms([]);
+    if (isFirstLoad) setRooms(() => []);
   } finally {
     setLoading(false);
   }
@@ -59,28 +69,42 @@ async function fetchChatRooms(
 
 export function ChatRoomsProvider({ children }: { children: ReactNode }) {
   const { state: auth } = useAuthStatus();
-  const myRole = auth.phase === "in" ? auth.role : null;
+  const isLoggedIn = auth.phase === "in";
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [readState, setReadState] = useState<Record<string, string>>({});
+  const firstLoadDoneRef = useRef(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
     setReadState(readJSON<Record<string, string>>(READ_STATE_KEY, {}));
   }, []);
 
-  const refresh = useCallback(() => fetchChatRooms(setRooms, setLoading), []);
-
-  useEffect(() => {
-    fetchChatRooms(setRooms, setLoading);
+  const refresh = useCallback(() => {
+    const isFirstLoad = !firstLoadDoneRef.current;
+    firstLoadDoneRef.current = true;
+    return fetchChatRooms(setRooms, setLoading, isFirstLoad);
   }, []);
 
-  usePolling(refresh, POLL_INTERVAL_MS);
+  useEffect(() => {
+    if (!isLoggedIn) {
+      // 로그아웃 상태거나 아직 인증 확인 중이면 조회하지 않는다. 로그아웃 직후엔
+      // 이전 계정의 목록/배지가 남아있지 않도록 비운다.
+      firstLoadDoneRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그아웃 전환 시 이전 목록을 즉시 비운다
+      setRooms([]);
+      setLoading(false);
+      return;
+    }
+    refresh();
+  }, [isLoggedIn, refresh]);
 
-  const markRoomRead = useCallback((id: string) => {
+  usePolling(refresh, isLoggedIn ? POLL_INTERVAL_MS : null);
+
+  const markRoomRead = useCallback((id: string, lastMessageAt: string) => {
     setReadState((prev) => {
-      const next = { ...prev, [id]: new Date().toISOString() };
+      const next = { ...prev, [id]: lastMessageAt };
       writeJSON(READ_STATE_KEY, next);
       return next;
     });
@@ -88,11 +112,11 @@ export function ChatRoomsProvider({ children }: { children: ReactNode }) {
 
   const isRoomUnread = useCallback(
     (room: ChatRoom) => {
-      if (!myRole || !room.lastMessageFrom || room.lastMessageFrom === myRole) return false;
+      if (!room.lastMessageFrom || room.lastMessageFrom === room.viewerSide) return false;
       const lastRead = readState[room.id];
       return !lastRead || new Date(room.lastMessageAt) > new Date(lastRead);
     },
-    [myRole, readState],
+    [readState],
   );
 
   const unreadCount = useMemo(() => rooms.filter(isRoomUnread).length, [rooms, isRoomUnread]);

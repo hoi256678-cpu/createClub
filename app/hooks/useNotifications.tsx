@@ -45,7 +45,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const markRead = useCallback(
     (id: string | number) => {
       if (typeof id === "string" && id.startsWith("chat:")) {
-        markRoomRead(id.slice("chat:".length));
+        const roomId = id.slice("chat:".length);
+        const room = rooms.find((r) => r.id === roomId);
+        if (room) markRoomRead(room.id, room.lastMessageAt);
         return;
       }
       setReadIds((prev) => {
@@ -55,12 +57,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [markRoomRead],
+    [rooms, markRoomRead],
   );
 
   const markAllRead = useCallback(() => {
     persist(NOTIFICATIONS.map((n) => n.id as number));
-    rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id));
+    rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
   }, [persist, rooms, isRoomUnread, markRoomRead]);
 
   const chatItems = useMemo<NotificationItem[]>(

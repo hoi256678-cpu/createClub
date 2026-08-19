@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RequireAuth from "@/app/components/RequireAuth";
 import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { apiFetch } from "@/lib/api";
-import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
 import { usePolling } from "@/app/hooks/usePolling";
 
@@ -22,6 +21,7 @@ type RoomDetail = {
   lastMessage: string | null;
   lastMessageAt: string;
   lastMessageFrom: "client" | "counselor" | null;
+  viewerSide: "client" | "counselor";
   createdAt: string;
   messages: Message[];
 };
@@ -31,8 +31,6 @@ const POLL_INTERVAL_MS = 5000;
 export default function ChatRoomPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { state: auth } = useAuthStatus();
-  const myRole = auth.phase === "in" ? auth.role : null;
   const { refresh: refreshRoomList, markRoomRead } = useChatRooms();
   const [room, setRoom] = useState<RoomDetail | null | undefined>(undefined);
   const [input, setInput] = useState("");
@@ -40,6 +38,8 @@ export default function ChatRoomPage() {
   const [modal, setModal] = useState<"end" | "report" | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const firstLoadDoneRef = useRef(false);
 
   function openModal(next: "end" | "report" | null) {
     setModalError(null);
@@ -47,22 +47,52 @@ export default function ChatRoomPage() {
   }
 
   async function loadRoom() {
+    const isFirstLoad = !firstLoadDoneRef.current;
+    firstLoadDoneRef.current = true;
     try {
       const res = await apiFetch(`/api/counseling/rooms/${params.id}`);
-      setRoom(res.ok ? await res.json() : null);
+      if (res.ok) {
+        setRoom(await res.json());
+        return;
+      }
+      // 403/404는 "이 방에 접근할 수 없다"는 확정적인 답이므로 방을 못 찾은 것으로 처리한다.
+      // 그 외(500 등) 실패는 최초 로드가 아니면(=이미 방을 보고 있던 중이면) 기존 상태를 유지한다 —
+      // 백엔드 콜드스타트 같은 일시적 실패로 열어보던 방이 사라지는 걸 막기 위함이다.
+      if (res.status === 403 || res.status === 404 || isFirstLoad) {
+        setRoom(null);
+      }
     } catch {
-      setRoom(null);
+      if (isFirstLoad) setRoom(null);
     }
   }
 
   useEffect(() => {
+    firstLoadDoneRef.current = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 방 상세는 마운트/id 변경 시 API 호출 후 setState한다
     loadRoom();
-    markRoomRead(params.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   usePolling(loadRoom, POLL_INTERVAL_MS);
+
+  // 서버의 lastMessageAt을 읽음 시각으로 저장한다(기기 시계 오차 문제를 피하기 위해).
+  // 방이 열려있는 동안 폴링으로 새 메시지가 도착할 때마다 다시 호출해서,
+  // 지금 보고 있는 방이 폴링 도중 "안읽음"으로 뒤집히지 않게 한다.
+  useEffect(() => {
+    if (!room) return;
+    markRoomRead(room.id, room.lastMessageAt);
+    // room 전체가 아니라 실제로 읽음 판정에 영향을 주는 값만 deps로 쓴다 —
+    // room 객체 참조가 바뀔 때마다(폴링마다) 매번 markRoomRead가 다시 호출되는 걸 피하기 위함.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.id, room?.lastMessageAt, room?.messages.length, markRoomRead]);
+
+  // 새 메시지가 생기면(전송 또는 폴링) 목록 하단으로 스크롤한다.
+  useEffect(() => {
+    if (!room || room.messages.length === 0) return;
+    bottomRef.current?.scrollIntoView();
+    // 메시지 개수가 바뀔 때만 스크롤하면 충분하다 (room 객체 참조 변화마다 스크롤하지 않도록).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.messages.length]);
 
   async function send() {
     if (!room || !input.trim() || room.status !== "active") return;
@@ -178,7 +208,7 @@ export default function ChatRoomPage() {
                   >
                     상담 종료하기
                   </button>
-                  {myRole === "client" && (
+                  {room.viewerSide === "client" && (
                     <button
                       onClick={() => {
                         setMenuOpen(false);
@@ -203,7 +233,7 @@ export default function ChatRoomPage() {
 
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-bg p-5">
           {room.messages.map((m) => {
-            const isMine = m.from === myRole;
+            const isMine = m.from === room.viewerSide;
             return (
               <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                 <div
@@ -218,6 +248,7 @@ export default function ChatRoomPage() {
               </div>
             );
           })}
+          <div ref={bottomRef} />
         </div>
 
         {sendError && <p className="px-5 pt-2 text-xs font-semibold text-danger">{sendError}</p>}
@@ -252,7 +283,7 @@ export default function ChatRoomPage() {
           onSubmit={handleEnd}
           onClose={() => openModal(null)}
           error={modalError}
-          showRating={myRole === "client"}
+          showRating={room.viewerSide === "client"}
         />
       )}
       {modal === "report" && (

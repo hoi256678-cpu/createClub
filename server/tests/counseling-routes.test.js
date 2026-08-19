@@ -143,6 +143,7 @@ test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성
   assert.equal(res.status, 201);
   assert.equal(res.body.otherPartyId, counselor._id.toString());
   assert.equal(res.body.otherPartyName, "이지원");
+  assert.equal(res.body.viewerSide, "client");
   assert.equal(res.body.status, "active");
 
   // 통계는 실제 메시지가 오간 뒤 종료할 때 반영된다 (신청 시점에는 반영되지 않음)
@@ -431,6 +432,7 @@ test("클라이언트가 방 목록을 조회하면 otherPartyName이 상담사 
   assert.equal(res.status, 200);
   assert.equal(res.body[0].otherPartyName, "이지원");
   assert.equal(res.body[0].otherPartyMajor, "상담심리학과 4학년");
+  assert.equal(res.body[0].viewerSide, "client");
 });
 
 test("상담사가 방 목록을 조회하면 자신이 배정된 방만, otherPartyName은 내담자 이름이다", async () => {
@@ -445,6 +447,7 @@ test("상담사가 방 목록을 조회하면 자신이 배정된 방만, otherP
   assert.equal(res.body.length, 1);
   assert.equal(res.body[0].otherPartyName, "내담자");
   assert.equal(res.body[0].otherPartyMajor, "");
+  assert.equal(res.body[0].viewerSide, "counselor");
 
   const res2 = await request(app).get("/api/counseling/rooms").set("Cookie", counselorCookie(otherCounselor));
   assert.equal(res2.body.length, 0);
@@ -461,6 +464,7 @@ test("상담사가 방 상세를 조회할 수 있다", async () => {
     .set("Cookie", counselorCookie(counselor));
   assert.equal(res.status, 200);
   assert.equal(res.body.otherPartyName, "내담자");
+  assert.equal(res.body.viewerSide, "counselor");
 });
 
 test("메시지를 보내면 목록의 lastMessageFrom/lastMessageAt이 갱신된다", async () => {

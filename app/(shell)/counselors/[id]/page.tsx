@@ -12,7 +12,12 @@ import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
 import type { Counselor } from "../mock";
 
-type RoomSummary = { id: string; status: "active" | "ended" | "reported" };
+type RoomSummary = {
+  id: string;
+  status: "active" | "ended" | "reported";
+  otherPartyId: string;
+  viewerSide: "client" | "counselor";
+};
 
 export default function CounselorDetailPage() {
   const params = useParams<{ id: string }>();
@@ -41,11 +46,16 @@ export default function CounselorDetailPage() {
     apiFetch("/api/counseling/rooms")
       .then((res) => (res.ok ? res.json() : []))
       .then((rooms: RoomSummary[]) => {
-        const active = rooms.find((r) => r.status === "active");
+        // "이미 이 상담사에게 신청한 활성 상담이 있는지"는 내가 client 쪽이고
+        // 상대방이 바로 이 상담사인 방으로만 좁혀야 한다. viewerSide를 안 걸러내면
+        // 상담사 계정이 이 페이지를 볼 때 자기 자신의 counselor-side 활성 방과 뒤섞인다.
+        const active = rooms.find(
+          (r) => r.status === "active" && r.viewerSide === "client" && r.otherPartyId === params.id,
+        );
         setActiveRoomId(active ? active.id : null);
       })
       .catch(() => setActiveRoomId(null));
-  }, [auth.phase]);
+  }, [auth.phase, params.id]);
 
   async function apply() {
     if (auth.phase === "out") {

@@ -79,6 +79,7 @@ function serializeRoom(room, viewerId) {
     lastMessage: last ? last.text : null,
     lastMessageAt: last ? last.createdAt : room.createdAt,
     lastMessageFrom: last ? last.from : null,
+    viewerSide: isViewerClient ? "client" : "counselor",
     createdAt: room.createdAt,
   };
 }

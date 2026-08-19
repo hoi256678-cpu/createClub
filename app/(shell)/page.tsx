@@ -6,6 +6,7 @@ import AuthLink from "@/app/components/AuthLink";
 import Card from "@/app/components/ui/Card";
 import SectionTitle from "@/app/components/ui/SectionTitle";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TEST_CARDS } from "./test/data";
 import { pickPopularPosts } from "./community/popular";
 import type { CommunityPost } from "./community/types";
@@ -17,8 +18,10 @@ const QUOTES = [
 ];
 
 export default function HomePage() {
+  const { state: auth } = useAuthStatus();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const quote = QUOTES[0];
+  const hideCounselorEntry = auth.phase === "in" && auth.role === "counselor";
 
   useEffect(() => {
     apiFetch("/api/community/posts")
@@ -40,12 +43,14 @@ export default function HomePage() {
           </h1>
           <p className="mt-2 text-sm text-white/80">또래 상담사와 1:1로 이야기를 나눠보세요</p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link
-              href="/counselors"
-              className="inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
-            >
-              또래 상담사 찾기 →
-            </Link>
+            {!hideCounselorEntry && (
+              <Link
+                href="/counselors"
+                className="inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
+              >
+                또래 상담사 찾기 →
+              </Link>
+            )}
             <Link
               href="/mood"
               className="inline-block rounded-xl border border-white/50 px-5 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-white/10"

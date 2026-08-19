@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
 import { GUEST_UPGRADE_REASON } from "@/lib/access";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms, type ChatRoom } from "@/app/hooks/useChatRooms";
 
 export default function ChatListPage() {
+  const { state: auth } = useAuthStatus();
   const { rooms, loading, isRoomUnread } = useChatRooms();
   const [tab, setTab] = useState<"active" | "all">("active");
+  const hideCounselorEntry = auth.phase === "in" && auth.role === "counselor";
 
   const visibleRooms = tab === "active" ? rooms.filter((r) => r.status === "active") : rooms;
 
@@ -51,12 +54,14 @@ export default function ChatListPage() {
         </div>
         <div className="hidden flex-col items-center justify-center gap-4 py-24 text-text-faint shell:flex">
           왼쪽에서 상담을 선택해주세요
-          <Link
-            href="/counselors"
-            className="rounded-xl border border-border px-4 py-2 text-[13px] font-bold text-primary-dark transition-colors hover:border-primary-dark"
-          >
-            새 상담사 찾아보기 →
-          </Link>
+          {!hideCounselorEntry && (
+            <Link
+              href="/counselors"
+              className="rounded-xl border border-border px-4 py-2 text-[13px] font-bold text-primary-dark transition-colors hover:border-primary-dark"
+            >
+              새 상담사 찾아보기 →
+            </Link>
+          )}
         </div>
       </div>
     </RequireAuth>
