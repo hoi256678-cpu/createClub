@@ -45,6 +45,7 @@ function RegisterForm() {
   const [wasVerified, setWasVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     apiFetch("/api/counselors/me")
@@ -76,14 +77,18 @@ function RegisterForm() {
         method: "POST",
         body: JSON.stringify({ name, major, year, bio, specialties }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as { verified: boolean };
       if (!res.ok) {
-        setError(data.error ?? "등록에 실패했어요");
+        setError((data as { error?: string }).error ?? "등록에 실패했어요");
         return;
       }
       // 이름이 바뀌었을 수 있으니 상단바/사이드바에 보이는 로그인 이름도 새로 받아온다.
       await refreshAuth();
-      router.push("/");
+      if (data.verified) {
+        router.push("/");
+      } else {
+        setSubmitted(true);
+      }
     } catch {
       setError("백엔드에 연결할 수 없어요");
     } finally {
@@ -93,6 +98,19 @@ function RegisterForm() {
 
   if (loading) {
     return <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>;
+  }
+
+  if (submitted) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <Card>
+          <h1 className="text-lg font-extrabold text-text">제출 완료</h1>
+          <p className="mt-2 text-sm leading-relaxed text-text-muted">
+            관리자 승인 후 상담사 찾기 목록에 노출돼요. 조금만 기다려주세요.
+          </p>
+        </Card>
+      </div>
+    );
   }
 
   return (
