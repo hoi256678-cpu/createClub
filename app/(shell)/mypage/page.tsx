@@ -22,7 +22,9 @@ export default function MypagePage() {
               {auth.name.slice(0, 1)}
             </div>
             <div className="mb-1 font-extrabold text-white">{auth.name}</div>
-            <div className="text-xs text-white/75">{auth.role === "counselor" ? "상담사" : "고민 청소년"}</div>
+            <div className="text-xs text-white/75">
+              {auth.role === "counselor" ? "상담사" : auth.role === "admin" ? "관리자" : "고민 청소년"}
+            </div>
             <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl bg-white/15">
               <Link href="/mypage/my-posts" className="border-r border-white/15 py-3 text-center hover:bg-white/10">
                 <div className="font-extrabold text-white">{postCount}</div>
