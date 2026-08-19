@@ -3,14 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
-import { useTestHistory, type TestRecord } from "@/app/hooks/useTestHistory";
+import { useTestHistory } from "@/app/hooks/useTestHistory";
 import { formatRelativeTime } from "../community/time";
-import { TEST_CARDS } from "../test/data";
 import { apiFetch } from "@/lib/api";
 
 export default function MypagePage() {
   const [postCount, setPostCount] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
   const { records } = useTestHistory();
 
   useEffect(() => {
@@ -59,12 +57,12 @@ export default function MypagePage() {
               <div className="mb-3 flex items-center justify-between">
                 <div className="font-bold text-text">내 심리검사 기록</div>
                 {records.length > 0 && (
-                  <button
-                    onClick={() => setShowHistory(true)}
+                  <Link
+                    href="/mypage/test-history"
                     className="text-xs font-semibold text-text-faint hover:text-text-muted"
                   >
                     이전 검사기록
-                  </button>
+                  </Link>
                 )}
               </div>
               {records.length === 0 ? (
@@ -91,53 +89,8 @@ export default function MypagePage() {
               프로필 상세 정보(전공/학년/연령대 등) 입력은 곧 추가될 예정이에요.
             </div>
           </div>
-
-          {showHistory && <TestHistoryModal records={records} onClose={() => setShowHistory(false)} />}
         </div>
       )}
     </RequireAuth>
-  );
-}
-
-function TestHistoryModal({ records, onClose }: { records: TestRecord[]; onClose: () => void }) {
-  const groups = TEST_CARDS.map((card) => ({
-    card,
-    records: records.filter((r) => r.type === card.type),
-  })).filter((g) => g.records.length > 0);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-extrabold text-text">이전 검사기록</h2>
-          <button onClick={onClose} className="text-text-muted">
-            ×
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          {groups.map(({ card, records: groupRecords }) => (
-            <div key={card.type}>
-              <div className="mb-2 text-sm font-bold text-text">
-                {card.emoji} {card.title}
-              </div>
-              <div className="flex flex-col divide-y divide-border">
-                {groupRecords.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 py-2.5">
-                    <span className="flex-shrink-0 text-sm font-extrabold" style={{ color: r.color }}>
-                      {r.score}점
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-text-2">{r.label}</span>
-                    <span className="w-16 flex-shrink-0 text-right text-[11px] text-text-faint">
-                      {formatRelativeTime(r.takenAt)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
