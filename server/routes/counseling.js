@@ -47,6 +47,7 @@ router.get("/counselors/me", requireAuth, async (req, res) => {
     const p = user.counselorProfile || {};
     res.json({
       id: user._id.toString(),
+      name: user.name,
       major: p.major || "",
       year: p.year || "",
       bio: p.bio || "",
@@ -66,7 +67,13 @@ router.post("/counselors/register", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "상담사 계정만 등록할 수 있어요" });
     }
 
-    const { major, year, bio, specialties } = req.body || {};
+    const { name, major, year, bio, specialties } = req.body || {};
+    if (!name?.trim()) {
+      return res.status(400).json({ error: "이름을 입력해주세요" });
+    }
+    if (name.trim().length > 30) {
+      return res.status(400).json({ error: "이름은 30자를 넘을 수 없어요" });
+    }
     if (!major?.trim()) {
       return res.status(400).json({ error: "전공을 입력해주세요" });
     }
@@ -89,6 +96,7 @@ router.post("/counselors/register", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "선택할 수 없는 태그가 있어요" });
     }
 
+    user.name = name.trim();
     user.counselorProfile.major = major.trim();
     user.counselorProfile.year = year ? String(year).trim() : "";
     user.counselorProfile.bio = bio.trim();
@@ -96,7 +104,7 @@ router.post("/counselors/register", requireAuth, async (req, res) => {
     user.counselorProfile.verified = true;
     await user.save();
 
-    res.json({ id: user._id.toString(), verified: true });
+    res.json({ id: user._id.toString(), name: user.name, verified: true });
   } catch (err) {
     console.error("상담사 등록 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });

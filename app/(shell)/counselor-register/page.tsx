@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import RequireAuth from "@/app/components/RequireAuth";
 import Card from "@/app/components/ui/Card";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { ALL_TAGS, type CounselorTag } from "@/app/(shell)/counselors/mock";
 
 type MyProfile = {
+  name: string;
   major: string;
   year: string;
   bio: string;
@@ -33,7 +35,9 @@ export default function CounselorRegisterPage() {
 
 function RegisterForm() {
   const router = useRouter();
+  const { refresh: refreshAuth } = useAuthStatus();
   const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
   const [major, setMajor] = useState("");
   const [year, setYear] = useState("");
   const [bio, setBio] = useState("");
@@ -47,6 +51,7 @@ function RegisterForm() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: MyProfile | null) => {
         if (data) {
+          setName(data.name);
           setMajor(data.major);
           setYear(data.year);
           setBio(data.bio);
@@ -69,13 +74,15 @@ function RegisterForm() {
     try {
       const res = await apiFetch("/api/counselors/register", {
         method: "POST",
-        body: JSON.stringify({ major, year, bio, specialties }),
+        body: JSON.stringify({ name, major, year, bio, specialties }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "등록에 실패했어요");
         return;
       }
+      // 이름이 바뀌었을 수 있으니 상단바/사이드바에 보이는 로그인 이름도 새로 받아온다.
+      await refreshAuth();
       router.push("/");
     } catch {
       setError("백엔드에 연결할 수 없어요");
@@ -99,6 +106,17 @@ function RegisterForm() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-bold text-text">이름 / 닉네임</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={30}
+              placeholder="상담사 찾기 목록에 표시될 이름"
+              className="rounded-xl border border-border bg-bg px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+            />
+          </label>
+
           <label className="flex flex-col gap-1.5">
             <span className="text-[13px] font-bold text-text">전공</span>
             <input

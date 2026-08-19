@@ -687,24 +687,32 @@ test("상담사가 자신의(비어있는) 프로필을 /counselors/me로 조회
   assert.equal(res.body.verified, false);
 });
 
-test("상담사가 등록하면 verified가 true로 바뀌고 목록에 노출된다", async () => {
+test("상담사가 등록하면 이름/verified가 바뀌고 목록에 노출된다", async () => {
   const counselor = await createFreshCounselor();
   const res = await request(app)
     .post("/api/counselors/register")
     .set("Cookie", counselorCookie(counselor))
-    .send({ major: "심리학과 2학년", year: "2학년", bio: "천천히 들어드릴게요", specialties: ["학업", "관계"] });
+    .send({
+      name: "새이름상담사",
+      major: "심리학과 2학년",
+      year: "2학년",
+      bio: "천천히 들어드릴게요",
+      specialties: ["학업", "관계"],
+    });
   assert.equal(res.status, 200);
   assert.equal(res.body.verified, true);
   assert.equal(res.body.id, counselor._id.toString());
+  assert.equal(res.body.name, "새이름상담사");
 
   const listRes = await request(app).get("/api/counselors");
   assert.equal(listRes.body.length, 1);
-  assert.equal(listRes.body[0].name, "새상담사");
+  assert.equal(listRes.body[0].name, "새이름상담사");
   assert.equal(listRes.body[0].major, "심리학과 2학년");
   assert.equal(listRes.body[0].intro, "천천히 들어드릴게요");
   assert.deepEqual(listRes.body[0].tags, ["학업", "관계"]);
 
   const meRes = await request(app).get("/api/counselors/me").set("Cookie", counselorCookie(counselor));
+  assert.equal(meRes.body.name, "새이름상담사");
   assert.equal(meRes.body.major, "심리학과 2학년");
   assert.equal(meRes.body.verified, true);
 });
@@ -712,8 +720,19 @@ test("상담사가 등록하면 verified가 true로 바뀌고 목록에 노출�
 test("client 계정이 상담사 등록을 시도하면 403을 반환한다", async () => {
   const agent = request.agent(app);
   await signupClient(agent);
-  const res = await agent.post("/api/counselors/register").send({ major: "x", bio: "y", specialties: ["학업"] });
+  const res = await agent
+    .post("/api/counselors/register")
+    .send({ name: "x", major: "x", bio: "y", specialties: ["학업"] });
   assert.equal(res.status, 403);
+});
+
+test("이름 없이 등록하면 400을 반환한다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ name: "  ", major: "심리학과", bio: "안녕하세요", specialties: ["학업"] });
+  assert.equal(res.status, 400);
 });
 
 test("전공 없이 등록하면 400을 반환한다", async () => {
@@ -721,7 +740,7 @@ test("전공 없이 등록하면 400을 반환한다", async () => {
   const res = await request(app)
     .post("/api/counselors/register")
     .set("Cookie", counselorCookie(counselor))
-    .send({ major: "  ", bio: "안녕하세요", specialties: ["학업"] });
+    .send({ name: "새상담사", major: "  ", bio: "안녕하세요", specialties: ["학업"] });
   assert.equal(res.status, 400);
 });
 
@@ -730,7 +749,7 @@ test("태그 없이 등록하면 400을 반환한다", async () => {
   const res = await request(app)
     .post("/api/counselors/register")
     .set("Cookie", counselorCookie(counselor))
-    .send({ major: "심리학과", bio: "안녕하세요", specialties: [] });
+    .send({ name: "새상담사", major: "심리학과", bio: "안녕하세요", specialties: [] });
   assert.equal(res.status, 400);
 });
 
@@ -739,6 +758,6 @@ test("허용되지 않은 태그로 등록하면 400을 반환한다", async () 
   const res = await request(app)
     .post("/api/counselors/register")
     .set("Cookie", counselorCookie(counselor))
-    .send({ major: "심리학과", bio: "안녕하세요", specialties: ["없는태그"] });
+    .send({ name: "새상담사", major: "심리학과", bio: "안녕하세요", specialties: ["없는태그"] });
   assert.equal(res.status, 400);
 });
