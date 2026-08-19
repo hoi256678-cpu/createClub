@@ -46,6 +46,7 @@ router.get("/counselors/me", requireAuth, async (req, res) => {
     }
     const p = user.counselorProfile || {};
     res.json({
+      id: user._id.toString(),
       major: p.major || "",
       year: p.year || "",
       bio: p.bio || "",
@@ -161,6 +162,9 @@ router.post("/counseling/rooms", requireAuth, async (req, res) => {
     const { counselorId } = req.body || {};
     if (!counselorId) {
       return res.status(400).json({ error: "상담사를 선택해주세요" });
+    }
+    if (counselorId === req.user.id) {
+      return res.status(400).json({ error: "자기 자신에게는 상담을 신청할 수 없어요" });
     }
 
     const counselor = await User.findOne({ _id: counselorId, role: "counselor" });

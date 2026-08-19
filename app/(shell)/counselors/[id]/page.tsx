@@ -28,6 +28,8 @@ export default function CounselorDetailPage() {
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myCounselorId, setMyCounselorId] = useState<string | null>(null);
+  const isOwnProfile = myCounselorId === params.id;
 
   useEffect(() => {
     apiFetch(`/api/counselors/${params.id}`)
@@ -40,6 +42,14 @@ export default function CounselorDetailPage() {
       })
       .catch(() => setCounselor(null));
   }, [params.id]);
+
+  useEffect(() => {
+    if (auth.phase !== "in" || auth.role !== "counselor") return;
+    apiFetch("/api/counselors/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { id: string } | null) => setMyCounselorId(data?.id ?? null))
+      .catch(() => setMyCounselorId(null));
+  }, [auth]);
 
   useEffect(() => {
     if (auth.phase !== "in") return;
@@ -145,7 +155,11 @@ export default function CounselorDetailPage() {
           ))}
         </div>
 
-        {activeRoomId ? (
+        {isOwnProfile ? (
+          <p className="mt-5 rounded-xl bg-bg py-3 text-center text-sm font-bold text-text-faint">
+            내 상담사 프로필이에요
+          </p>
+        ) : activeRoomId ? (
           <Link
             href={`/chat/${activeRoomId}`}
             className="mt-5 block rounded-xl bg-primary-dark py-3 text-center text-sm font-extrabold text-white transition-colors hover:bg-primary-darker"

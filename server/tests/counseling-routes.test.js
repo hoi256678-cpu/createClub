@@ -177,6 +177,18 @@ test("존재하지 않는 상담사에게 신청하면 404를 반환한다", asy
   assert.equal(res.status, 404);
 });
 
+test("상담사가 자기 자신에게 상담을 신청하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "셀프상담사", email: "self-counselor@test.com", password: "1234", role: "counselor" });
+  const meRes = await agent.get("/api/counselors/me");
+  const myId = meRes.body.id;
+
+  const res = await agent.post("/api/counseling/rooms").send({ counselorId: myId });
+  assert.equal(res.status, 400);
+});
+
 test("내 채팅방 목록을 조회할 수 있다", async () => {
   const counselor = await createCounselor();
   const agent = request.agent(app);

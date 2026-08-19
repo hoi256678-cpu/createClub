@@ -76,7 +76,7 @@ function RegisterForm() {
         setError(data.error ?? "등록에 실패했어요");
         return;
       }
-      router.push(`/counselors/${data.id}`);
+      router.push("/");
     } catch {
       setError("백엔드에 연결할 수 없어요");
     } finally {
