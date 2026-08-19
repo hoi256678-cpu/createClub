@@ -1,6 +1,7 @@
 const express = require("express");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Report = require("../models/Report");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
@@ -106,6 +107,50 @@ router.delete("/posts/:id/comments/:commentId", requireAuth, requireAdmin, async
       return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
     }
     console.error("댓글 삭제 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+function serializeReport(report) {
+  return {
+    id: report._id.toString(),
+    reporterName: report.reporter.name,
+    counselorName: report.counselor.name,
+    reason: report.reason,
+    status: report.status,
+    createdAt: report.createdAt,
+  };
+}
+
+router.get("/reports", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    const reports = await Report.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("reporter", "name")
+      .populate("counselor", "name");
+    res.json(reports.map(serializeReport));
+  } catch (err) {
+    console.error("신고 목록 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.post("/reports/:id/review", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ error: "신고를 찾을 수 없어요" });
+    }
+    report.status = "reviewed";
+    await report.save();
+    res.json({ status: report.status });
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "신고를 찾을 수 없어요" });
+    }
+    console.error("신고 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });

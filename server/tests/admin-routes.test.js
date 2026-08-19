@@ -11,6 +11,8 @@ let mongod;
 let app;
 let User;
 let Post;
+let Report;
+let ChatRoom;
 let signToken;
 let COOKIE_NAME;
 
@@ -21,6 +23,8 @@ before(async () => {
   app = require("../index");
   User = require("../models/User");
   Post = require("../models/Post");
+  Report = require("../models/Report");
+  ChatRoom = require("../models/ChatRoom");
   ({ signToken, COOKIE_NAME } = require("../lib/token"));
 });
 
@@ -202,6 +206,71 @@ test("존재하지 않는 댓글을 삭제하면 404를 반환한다", async () 
 
   const res = await request(app)
     .delete(`/api/admin/posts/${post._id}/comments/${missingCommentId}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+});
+
+async function createReport(overrides = {}) {
+  const reporter = await User.create({ name: "신고자", email: overrides.reporterEmail ?? "reporter@test.com", passwordHash: "x", role: "client" });
+  const counselor = await User.create({ name: "상담사", email: overrides.counselorEmail ?? "reported@test.com", passwordHash: "x", role: "counselor" });
+  const room = await ChatRoom.create({ client: reporter._id, counselor: counselor._id, status: "reported" });
+  return Report.create({
+    reporter: reporter._id,
+    room: room._id,
+    counselor: counselor._id,
+    reason: overrides.reason ?? "부적절한 발언",
+    status: overrides.status ?? "open",
+  });
+}
+
+test("비로그인 상태로 신고 목록을 조회하면 401을 반환한다", async () => {
+  const res = await request(app).get("/api/admin/reports");
+  assert.equal(res.status, 401);
+});
+
+test("admin은 신고 목록을 조회할 수 있다", async () => {
+  const admin = await createAdmin();
+  await createReport();
+
+  const res = await request(app).get("/api/admin/reports").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].reason, "부적절한 발언");
+  assert.equal(res.body[0].status, "open");
+  assert.equal(res.body[0].reporterName, "신고자");
+  assert.equal(res.body[0].counselorName, "상담사");
+});
+
+test("status 쿼리로 신고 목록을 필터링할 수 있다", async () => {
+  const admin = await createAdmin();
+  await createReport({ reporterEmail: "r1@test.com", counselorEmail: "c1@test.com", status: "open" });
+  await createReport({ reporterEmail: "r2@test.com", counselorEmail: "c2@test.com", status: "reviewed" });
+
+  const res = await request(app).get("/api/admin/reports?status=open").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].status, "open");
+});
+
+test("admin이 신고를 처리 완료로 표시하면 status가 reviewed로 바뀐다", async () => {
+  const admin = await createAdmin();
+  const report = await createReport();
+
+  const res = await request(app)
+    .post(`/api/admin/reports/${report._id}/review`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "reviewed");
+
+  const updated = await Report.findById(report._id);
+  assert.equal(updated.status, "reviewed");
+});
+
+test("존재하지 않는 신고를 처리하면 404를 반환한다", async () => {
+  const admin = await createAdmin();
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await request(app)
+    .post(`/api/admin/reports/${missingId}/review`)
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
 });
