@@ -10,7 +10,8 @@ const userSchema = new mongoose.Schema({
     trim: true,
   },
   passwordHash: { type: String, required: true },
-  role: { type: String, required: true, enum: ["counselor", "client"] },
+  role: { type: String, required: true, enum: ["counselor", "client", "admin"] },
+  suspended: { type: Boolean, default: false },
   counselorProfile: {
     major: String,
     year: String,
