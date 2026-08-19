@@ -34,6 +34,7 @@ export default function ChatRoomPage() {
   const { refresh: refreshRoomList, markRoomRead } = useChatRooms();
   const [room, setRoom] = useState<RoomDetail | null | undefined>(undefined);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<"end" | "report" | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -95,10 +96,11 @@ export default function ChatRoomPage() {
   }, [room?.messages.length]);
 
   async function send() {
-    if (!room || !input.trim() || room.status !== "active") return;
+    if (!room || !input.trim() || room.status !== "active" || sending) return;
     const text = input.trim();
     setInput("");
     setSendError(null);
+    setSending(true);
     try {
       const res = await apiFetch(`/api/counseling/rooms/${room.id}/messages`, {
         method: "POST",
@@ -114,6 +116,8 @@ export default function ChatRoomPage() {
     } catch {
       setInput(text);
       setSendError("백엔드에 연결할 수 없어요");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -263,14 +267,14 @@ export default function ChatRoomPage() {
                 send();
               }
             }}
-            disabled={room.status !== "active"}
+            disabled={room.status !== "active" || sending}
             placeholder={room.status === "active" ? "메시지를 입력하세요" : "종료된 상담이에요"}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50"
           />
           <button
             onClick={send}
-            disabled={room.status !== "active"}
+            disabled={room.status !== "active" || sending}
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-dark text-white disabled:opacity-40"
           >
             ↑

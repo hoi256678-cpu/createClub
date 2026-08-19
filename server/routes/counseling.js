@@ -180,10 +180,20 @@ router.post("/counseling/rooms/:id/messages", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "종료된 상담이에요" });
     }
 
-    room.messages.push({ from: isClient ? "client" : "counselor", text: text.trim() });
-    await room.save();
+    // read-modify-write(push 후 save) 대신 $push 단일 원자적 연산으로 메시지를 추가한다.
+    // status: "active" 조건을 쿼리 필터에 걸어서, 위에서 읽은 뒤 update 사이에 방이 종료된 경우
+    // (TOCTOU) 조용히 종료된 방에 메시지가 붙는 것을 막는다.
+    const updated = await ChatRoom.findOneAndUpdate(
+      { _id: req.params.id, status: "active" },
+      { $push: { messages: { from: isClient ? "client" : "counselor", text: text.trim() } } },
+      { new: true },
+    );
+    if (!updated) {
+      // 위에서 방의 존재는 이미 확인했으므로, 여기서 null이면 그 사이 상태가 바뀐 것이다.
+      return res.status(400).json({ error: "종료된 상담이에요" });
+    }
 
-    res.status(201).json(room.messages.map(serializeMessage));
+    res.status(201).json(updated.messages.map(serializeMessage));
   } catch (err) {
     if (err.name === "CastError") {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });

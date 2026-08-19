@@ -86,7 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 뒤로/앞으로가기로 bfcache에서 복원되거나, 다른 탭에서 로그아웃한 뒤
     // 이 탭으로 돌아왔을 때 세션을 다시 확인한다.
     function handlePageShow(e: PageTransitionEvent) {
-      if (e.persisted) refresh();
+      if (e.persisted) {
+        // bfcache에서 즉시 복원된 화면은 다른 계정으로 로그인한 상태에서도
+        // 이전 계정의 role-gated UI를 그대로 보여줄 수 있다. /me 응답을 기다리지 않고
+        // 먼저 "loading"으로 되돌려서 그 짧은 창 동안은 중립/허용적인 화면(스피너, 전체 메뉴)이
+        // 보이게 한다 — RequireAuth와 Sidebar/BottomNav는 이미 phase !== "in"을 안전하게 처리한다.
+        commit({ phase: "loading" });
+        refresh();
+      }
     }
     function handleVisibility() {
       if (document.visibilityState === "visible") refresh();
@@ -98,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [refresh]);
+  }, [refresh, commit]);
 
   const value = useMemo(
     () => ({ state, setLoggedIn, setLoggedOut, refresh }),
