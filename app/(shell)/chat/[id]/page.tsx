@@ -5,27 +5,35 @@ import { useParams, useRouter } from "next/navigation";
 import RequireAuth from "@/app/components/RequireAuth";
 import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
+import { usePolling } from "@/app/hooks/usePolling";
 
-type Message = { id: string; from: "client"; text: string; createdAt: string };
+type Message = { id: string; from: "client" | "counselor"; text: string; createdAt: string };
 
 type RoomDetail = {
   id: string;
-  counselorId: string;
-  counselorName: string;
-  counselorMajor: string;
-  avatarBg: string;
-  avatarColor: string;
+  otherPartyId: string;
+  otherPartyName: string;
+  otherPartyMajor: string;
+  otherPartyAvatarBg: string;
+  otherPartyAvatarColor: string;
   status: "active" | "ended" | "reported";
   lastMessage: string | null;
+  lastMessageAt: string;
+  lastMessageFrom: "client" | "counselor" | null;
   createdAt: string;
   messages: Message[];
 };
 
+const POLL_INTERVAL_MS = 5000;
+
 export default function ChatRoomPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { refresh: refreshRoomList } = useChatRooms();
+  const { state: auth } = useAuthStatus();
+  const myRole = auth.phase === "in" ? auth.role : null;
+  const { refresh: refreshRoomList, markRoomRead } = useChatRooms();
   const [room, setRoom] = useState<RoomDetail | null | undefined>(undefined);
   const [input, setInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,8 +58,11 @@ export default function ChatRoomPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 방 상세는 마운트/id 변경 시 API 호출 후 setState한다
     loadRoom();
+    markRoomRead(params.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  usePolling(loadRoom, POLL_INTERVAL_MS);
 
   async function send() {
     if (!room || !input.trim() || room.status !== "active") return;
@@ -143,13 +154,13 @@ export default function ChatRoomPage() {
           </button>
           <div
             className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-extrabold"
-            style={{ background: room.avatarBg, color: room.avatarColor }}
+            style={{ background: room.otherPartyAvatarBg, color: room.otherPartyAvatarColor }}
           >
-            {room.counselorName.slice(0, 1)}
+            {room.otherPartyName.slice(0, 1)}
           </div>
           <div className="flex-1">
-            <div className="font-bold text-text">{room.counselorName}</div>
-            <div className="text-xs text-text-muted">{room.counselorMajor}</div>
+            <div className="font-bold text-text">{room.otherPartyName}</div>
+            {room.otherPartyMajor && <div className="text-xs text-text-muted">{room.otherPartyMajor}</div>}
           </div>
           {room.status === "active" && (
             <div className="relative">
@@ -167,15 +178,17 @@ export default function ChatRoomPage() {
                   >
                     상담 종료하기
                   </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      openModal("report");
-                    }}
-                    className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-danger hover:bg-bg"
-                  >
-                    신고하기
-                  </button>
+                  {myRole === "client" && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openModal("report");
+                      }}
+                      className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-danger hover:bg-bg"
+                    >
+                      신고하기
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -189,13 +202,22 @@ export default function ChatRoomPage() {
         )}
 
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-bg p-5">
-          {room.messages.map((m) => (
-            <div key={m.id} className="flex justify-end">
-              <div className="max-w-[420px] rounded-2xl rounded-br-md bg-primary-dark px-3 py-2.5 text-sm leading-relaxed text-white">
-                {m.text}
+          {room.messages.map((m) => {
+            const isMine = m.from === myRole;
+            return (
+              <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[420px] rounded-2xl px-3 py-2.5 text-sm leading-relaxed ${
+                    isMine
+                      ? "rounded-br-md bg-primary-dark text-white"
+                      : "rounded-bl-md border border-border bg-surface text-text"
+                  }`}
+                >
+                  {m.text}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {sendError && <p className="px-5 pt-2 text-xs font-semibold text-danger">{sendError}</p>}
@@ -226,7 +248,12 @@ export default function ChatRoomPage() {
       </div>
 
       {modal === "end" && (
-        <EndModal onSubmit={handleEnd} onClose={() => openModal(null)} error={modalError} />
+        <EndModal
+          onSubmit={handleEnd}
+          onClose={() => openModal(null)}
+          error={modalError}
+          showRating={myRole === "client"}
+        />
       )}
       {modal === "report" && (
         <ReportModal onSubmit={handleReport} onClose={() => openModal(null)} error={modalError} />
@@ -239,29 +266,37 @@ function EndModal({
   onSubmit,
   onClose,
   error,
+  showRating,
 }: {
   onSubmit: (rating: number | null) => void;
   onClose: () => void;
   error: string | null;
+  showRating: boolean;
 }) {
   const [rating, setRating] = useState<number | null>(null);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-surface p-6">
         <h2 className="font-extrabold text-text">상담을 종료할까요?</h2>
-        <p className="mt-1 text-[13px] text-text-muted">상담사에게 별점을 남길 수 있어요 (선택)</p>
-        <div className="mt-4 flex justify-center gap-1.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              onClick={() => setRating(n)}
-              aria-label={`${n}점`}
-              className={`text-2xl ${rating !== null && n <= rating ? "text-[#f0b429]" : "text-border"}`}
-            >
-              ★
-            </button>
-          ))}
-        </div>
+        {showRating ? (
+          <>
+            <p className="mt-1 text-[13px] text-text-muted">상담사에게 별점을 남길 수 있어요 (선택)</p>
+            <div className="mt-4 flex justify-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setRating(n)}
+                  aria-label={`${n}점`}
+                  className={`text-2xl ${rating !== null && n <= rating ? "text-[#f0b429]" : "text-border"}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="mt-1 text-[13px] text-text-muted">상담을 종료하면 다시 되돌릴 수 없어요.</p>
+        )}
         {error && <p className="mt-3 text-center text-xs font-semibold text-danger">{error}</p>}
         <div className="mt-5 flex gap-2">
           <button
@@ -271,10 +306,10 @@ function EndModal({
             취소
           </button>
           <button
-            onClick={() => onSubmit(rating)}
+            onClick={() => onSubmit(showRating ? rating : null)}
             className="flex-1 rounded-xl bg-primary-dark py-2.5 text-sm font-extrabold text-white"
           >
-            {rating ? "평점 남기고 종료" : "건너뛰고 종료"}
+            {showRating ? (rating ? "평점 남기고 종료" : "건너뛰고 종료") : "종료하기"}
           </button>
         </div>
       </div>

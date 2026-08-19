@@ -39,9 +39,9 @@ export default function RootLayout({
     <html lang="ko" className={`${suit.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-bg text-text-2">
         <AuthProvider>
-          <NotificationsProvider>
-            <ChatRoomsProvider>{children}</ChatRoomsProvider>
-          </NotificationsProvider>
+          <ChatRoomsProvider>
+            <NotificationsProvider>{children}</NotificationsProvider>
+          </ChatRoomsProvider>
         </AuthProvider>
       </body>
     </html>
