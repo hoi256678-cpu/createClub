@@ -474,3 +474,99 @@ test("메시지를 보내면 목록의 lastMessageFrom/lastMessageAt이 갱신�
   assert.equal(res.body[0].lastMessageFrom, "client");
   assert.ok(res.body[0].lastMessageAt);
 });
+
+test("상담사가 배정된 방에 메시지를 보내면 from이 counselor로 저장된다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/messages`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({ text: "안녕하세요, 무슨 일로 오셨나요?" });
+  assert.equal(res.status, 201);
+  assert.equal(res.body[res.body.length - 1].from, "counselor");
+});
+
+test("당사자가 아닌 상담사가 메시지를 보내면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const otherCounselor = await createCounselor({ email: "counselor2@test.com" });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/messages`)
+    .set("Cookie", counselorCookie(otherCounselor))
+    .send({ text: "몰래 보내는 메시지" });
+  assert.equal(res.status, 403);
+});
+
+test("상담사가 상담을 종료할 수 있고, 평점/세션수는 반영되지만 상담사 rating은 안 바뀐다", async () => {
+  const counselor = await createCounselor({ counselorProfile: { rating: 4.0, ratingCount: 1 } });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({});
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "ended");
+  assert.equal(res.body.rating, null);
+
+  const updated = await User.findById(counselor._id);
+  assert.equal(updated.counselorProfile.sessionCount, 113);
+  assert.equal(updated.counselorProfile.rating, 4.0);
+  assert.equal(updated.counselorProfile.ratingCount, 1);
+});
+
+test("상담사가 종료하며 rating을 보내도 무시된다", async () => {
+  const counselor = await createCounselor({ counselorProfile: { rating: 4.0, ratingCount: 1 } });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({ rating: 5 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.rating, null);
+
+  const updated = await User.findById(counselor._id);
+  assert.equal(updated.counselorProfile.rating, 4.0);
+  assert.equal(updated.counselorProfile.ratingCount, 1);
+});
+
+test("당사자가 아닌 상담사가 종료를 요청하면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const otherCounselor = await createCounselor({ email: "counselor2@test.com" });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(otherCounselor))
+    .send({});
+  assert.equal(res.status, 403);
+});
+
+test("이미 종료된 방을 상담사가 다시 종료하려 하면 400을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({});
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({});
+  assert.equal(res.status, 400);
+});

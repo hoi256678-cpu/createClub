@@ -170,14 +170,16 @@ router.post("/counseling/rooms/:id/messages", requireAuth, async (req, res) => {
     if (!room) {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
-    if (room.client.toString() !== req.user.id) {
+    const isClient = room.client.toString() === req.user.id;
+    const isCounselor = room.counselor.toString() === req.user.id;
+    if (!isClient && !isCounselor) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
     }
     if (room.status !== "active") {
       return res.status(400).json({ error: "종료된 상담이에요" });
     }
 
-    room.messages.push({ from: "client", text: text.trim() });
+    room.messages.push({ from: isClient ? "client" : "counselor", text: text.trim() });
     await room.save();
 
     res.status(201).json(room.messages.map(serializeMessage));
@@ -201,7 +203,9 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
     if (!room) {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
-    if (room.client.toString() !== req.user.id) {
+    const isClient = room.client.toString() === req.user.id;
+    const isCounselor = room.counselor.toString() === req.user.id;
+    if (!isClient && !isCounselor) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
     }
     if (room.status !== "active") {
@@ -210,12 +214,14 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
 
     room.status = "ended";
     room.endedAt = new Date();
-    if (rating) room.rating = rating;
+    // rating은 client가 종료할 때만 반영한다 — 상담사가 자기 평점을 남기는 건 의미가 없다.
+    const effectiveRating = isClient ? rating : undefined;
+    if (effectiveRating) room.rating = effectiveRating;
     await room.save();
 
     const hadMessages = room.messages.length > 0;
 
-    if (hadMessages || rating) {
+    if (hadMessages || effectiveRating) {
       const counselor = await User.findById(room.counselor);
       const p = counselor.counselorProfile;
 
@@ -226,11 +232,11 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
         p.recentSessions = (p.recentSessions || 0) + 1;
       }
 
-      if (rating && hadMessages) {
+      if (effectiveRating && hadMessages) {
         const prevCount = p.ratingCount || 0;
         const prevAvg = p.rating || 0;
         p.ratingCount = prevCount + 1;
-        p.rating = (prevAvg * prevCount + rating) / p.ratingCount;
+        p.rating = (prevAvg * prevCount + effectiveRating) / p.ratingCount;
       }
 
       await counselor.save();
