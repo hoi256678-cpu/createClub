@@ -21,6 +21,7 @@ function serializePost(post, userId) {
     likeCount: post.likedBy.length,
     cmtCount: post.comments.length,
     likedByMe: userId ? post.likedBy.some((id) => id.toString() === userId) : false,
+    savedByMe: userId ? post.savedBy.some((id) => id.toString() === userId) : false,
   };
 }
 
@@ -144,6 +145,64 @@ router.post("/posts/:id/like", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
     }
     console.error("좋아요 처리 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.post("/posts/:id/save", requireAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+
+    const idx = post.savedBy.findIndex((id) => id.toString() === req.user.id);
+    let saved;
+    if (idx === -1) {
+      post.savedBy.push(req.user.id);
+      saved = true;
+    } else {
+      post.savedBy.splice(idx, 1);
+      saved = false;
+    }
+    await post.save();
+
+    res.json({ saved });
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+    console.error("저장 처리 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.get("/my-posts", requireAuth, async (req, res) => {
+  try {
+    const posts = await Post.find({ author: req.user.id }).sort({ createdAt: -1 }).populate("author", "name role");
+    res.json(posts.map((p) => serializePost(p, req.user.id)));
+  } catch (err) {
+    console.error("내가 쓴 글 목록 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.get("/my-saved-posts", requireAuth, async (req, res) => {
+  try {
+    const posts = await Post.find({ savedBy: req.user.id }).sort({ createdAt: -1 }).populate("author", "name role");
+    res.json(posts.map((p) => serializePost(p, req.user.id)));
+  } catch (err) {
+    console.error("저장한 글 목록 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.get("/my-saved-posts/count", requireAuth, async (req, res) => {
+  try {
+    const count = await Post.countDocuments({ savedBy: req.user.id });
+    res.json({ count });
+  } catch (err) {
+    console.error("저장한 글 개수 조회 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });

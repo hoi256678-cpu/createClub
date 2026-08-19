@@ -10,6 +10,7 @@ export type CommunityPost = {
   likeCount: number;
   cmtCount: number;
   likedByMe: boolean;
+  savedByMe: boolean;
 };
 
 export type CommunityComment = {

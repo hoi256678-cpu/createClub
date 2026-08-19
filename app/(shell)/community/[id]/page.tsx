@@ -50,6 +50,18 @@ export default function CommunityPostPage() {
     setPost({ ...post, likedByMe: data.liked, likeCount: data.likeCount });
   }
 
+  async function toggleSave() {
+    if (requireLogin() || !post) return;
+    const res = await apiFetch(`/api/community/posts/${post.id}/save`, { method: "POST" });
+    if (res.status === 401) {
+      router.push(loginHref(`/community/${params.id}`));
+      return;
+    }
+    if (!res.ok) return;
+    const data = (await res.json()) as { saved: boolean };
+    setPost({ ...post, savedByMe: data.saved });
+  }
+
   async function submitComment() {
     if (requireLogin() || !post || !comment.trim()) return;
     const res = await apiFetch(`/api/community/posts/${post.id}/comments`, {
@@ -107,7 +119,7 @@ export default function CommunityPostPage() {
           </div>
           <div className="whitespace-pre-wrap text-[15px] leading-[1.85] text-text-2">{post.body}</div>
 
-          <div className="my-6 flex justify-center border-y border-border py-6">
+          <div className="my-6 flex justify-center gap-3 border-y border-border py-6">
             <button
               onClick={toggleLike}
               className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-6 py-3 font-bold transition-colors ${
@@ -116,6 +128,15 @@ export default function CommunityPostPage() {
             >
               <span className="text-xl">👍</span>
               <span className="text-sm text-text">{post.likeCount}</span>
+            </button>
+            <button
+              onClick={toggleSave}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-6 py-3 font-bold transition-colors ${
+                post.savedByMe ? "border-primary-dark bg-primary-light" : "border-border"
+              }`}
+            >
+              <span className="text-xl">🔖</span>
+              <span className="text-sm text-text">{post.savedByMe ? "저장됨" : "저장"}</span>
             </button>
           </div>
 

@@ -16,6 +16,7 @@ const postSchema = new mongoose.Schema(
     body: { type: String, required: true, maxlength: 5000 },
     views: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
   },
   { timestamps: { createdAt: true, updatedAt: false } }

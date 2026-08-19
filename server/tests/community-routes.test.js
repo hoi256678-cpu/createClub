@@ -221,3 +221,88 @@ test("비로그인 상태로 작성한 글 개수를 조회하면 401을 반환�
   const res = await request(app).get("/api/community/my-posts/count");
   assert.equal(res.status, 401);
 });
+
+test("내가 쓴 글 목록만 최신순으로 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  await agent.post("/api/community/posts").send({ tag: "고민", title: "글1", body: "내용1" });
+  await agent.post("/api/community/posts").send({ tag: "고민", title: "글2", body: "내용2" });
+
+  const otherAgent = request.agent(app);
+  await signup(otherAgent, { email: "other@test.com" });
+  await otherAgent.post("/api/community/posts").send({ tag: "고민", title: "다른사람글", body: "내용" });
+
+  const res = await agent.get("/api/community/my-posts");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 2);
+  assert.equal(res.body[0].title, "글2");
+  assert.equal(res.body[1].title, "글1");
+});
+
+test("비로그인 상태로 작성한 글 목록을 조회하면 401을 반환한다", async () => {
+  const res = await request(app).get("/api/community/my-posts");
+  assert.equal(res.status, 401);
+});
+
+test("저장하면 savedByMe가 true가 되고, 다시 누르면 false로 돌아간다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent);
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const saverAgent = request.agent(app);
+  await signup(saverAgent, { email: "saver@test.com" });
+
+  const saveRes = await saverAgent.post(`/api/community/posts/${createRes.body.id}/save`);
+  assert.equal(saveRes.status, 200);
+  assert.deepEqual(saveRes.body, { saved: true });
+
+  const detailRes = await saverAgent.get(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(detailRes.body.savedByMe, true);
+
+  const unsaveRes = await saverAgent.post(`/api/community/posts/${createRes.body.id}/save`);
+  assert.deepEqual(unsaveRes.body, { saved: false });
+
+  const detailRes2 = await saverAgent.get(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(detailRes2.body.savedByMe, false);
+});
+
+test("비로그인 상태로 저장을 누르면 401을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const res = await request(app).post(`/api/community/posts/${createRes.body.id}/save`);
+  assert.equal(res.status, 401);
+});
+
+test("내가 저장한 글 목록과 개수를 정확히 반환한다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent);
+  const post1 = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "글1", body: "내용1" });
+  const post2 = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "글2", body: "내용2" });
+  await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "글3", body: "내용3" });
+
+  const saverAgent = request.agent(app);
+  await signup(saverAgent, { email: "saver@test.com" });
+  await saverAgent.post(`/api/community/posts/${post1.body.id}/save`);
+  await saverAgent.post(`/api/community/posts/${post2.body.id}/save`);
+
+  const listRes = await saverAgent.get("/api/community/my-saved-posts");
+  assert.equal(listRes.status, 200);
+  assert.equal(listRes.body.length, 2);
+  assert.deepEqual(
+    listRes.body.map((p) => p.title).sort(),
+    ["글1", "글2"],
+  );
+
+  const countRes = await saverAgent.get("/api/community/my-saved-posts/count");
+  assert.deepEqual(countRes.body, { count: 2 });
+});
+
+test("비로그인 상태로 저장한 글 목록/개수를 조회하면 401을 반환한다", async () => {
+  const listRes = await request(app).get("/api/community/my-saved-posts");
+  assert.equal(listRes.status, 401);
+
+  const countRes = await request(app).get("/api/community/my-saved-posts/count");
+  assert.equal(countRes.status, 401);
+});

@@ -1,19 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
 import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms, type ChatRoom } from "@/app/hooks/useChatRooms";
 
+type Tab = "active" | "all" | "ended";
+
 export default function ChatListPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatListPageContent />
+    </Suspense>
+  );
+}
+
+function ChatListPageContent() {
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab: Tab = requestedTab === "all" || requestedTab === "ended" ? requestedTab : "active";
   const { state: auth } = useAuthStatus();
   const { rooms, loading, isRoomUnread } = useChatRooms();
-  const [tab, setTab] = useState<"active" | "all">("active");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const hideCounselorEntry = auth.phase === "in" && auth.role === "counselor";
 
-  const visibleRooms = tab === "active" ? rooms.filter((r) => r.status === "active") : rooms;
+  const visibleRooms =
+    tab === "active"
+      ? rooms.filter((r) => r.status === "active")
+      : tab === "ended"
+        ? rooms.filter((r) => r.status !== "active")
+        : rooms;
 
   return (
     <RequireAuth reason={GUEST_UPGRADE_REASON.liveChat}>
@@ -31,6 +50,14 @@ export default function ChatListPage() {
                 진행중
               </button>
               <button
+                onClick={() => setTab("ended")}
+                className={`rounded-md px-2.5 py-1 ${
+                  tab === "ended" ? "bg-surface text-primary-dark shadow-sm" : "text-text-faint"
+                }`}
+              >
+                종료됨
+              </button>
+              <button
                 onClick={() => setTab("all")}
                 className={`rounded-md px-2.5 py-1 ${
                   tab === "all" ? "bg-surface text-primary-dark shadow-sm" : "text-text-faint"
@@ -45,7 +72,7 @@ export default function ChatListPage() {
               <div className="px-4 py-8 text-center text-sm text-text-faint">불러오는 중이에요...</div>
             ) : visibleRooms.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-text-faint">
-                {tab === "active" ? "진행 중인 상담이 없어요" : "아직 상담이 없어요"}
+                {tab === "active" ? "진행 중인 상담이 없어요" : tab === "ended" ? "종료된 상담이 없어요" : "아직 상담이 없어요"}
               </div>
             ) : (
               visibleRooms.map((r) => <ChatRoomRow key={r.id} room={r} unread={isRoomUnread(r)} />)

@@ -4,18 +4,27 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
 import { useTestHistory } from "@/app/hooks/useTestHistory";
+import { useChatRooms } from "@/app/hooks/useChatRooms";
 import { formatRelativeTime } from "../community/time";
 import { apiFetch } from "@/lib/api";
 
 export default function MypagePage() {
   const [postCount, setPostCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
   const { records } = useTestHistory();
+  const { rooms } = useChatRooms();
+  const endedSessionCount = rooms.filter((r) => r.status !== "active").length;
 
   useEffect(() => {
     apiFetch("/api/community/my-posts/count")
       .then((res) => (res.ok ? res.json() : { count: 0 }))
       .then((data: { count: number }) => setPostCount(data.count))
       .catch(() => setPostCount(0));
+
+    apiFetch("/api/community/my-saved-posts/count")
+      .then((res) => (res.ok ? res.json() : { count: 0 }))
+      .then((data: { count: number }) => setSavedCount(data.count))
+      .catch(() => setSavedCount(0));
   }, []);
 
   return (
@@ -29,18 +38,21 @@ export default function MypagePage() {
             <div className="mb-1 font-extrabold text-white">{auth.name}</div>
             <div className="text-xs text-white/75">{auth.role === "counselor" ? "상담사" : "고민 청소년"}</div>
             <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl bg-white/15">
-              <div className="border-r border-white/15 py-3 text-center">
+              <Link href="/mypage/my-posts" className="border-r border-white/15 py-3 text-center hover:bg-white/10">
                 <div className="font-extrabold text-white">{postCount}</div>
                 <div className="mt-0.5 text-[10px] text-white/70">작성한 글</div>
-              </div>
-              <div className="border-r border-white/15 py-3 text-center">
-                <div className="font-extrabold text-white">0</div>
+              </Link>
+              <Link
+                href="/mypage/saved-posts"
+                className="border-r border-white/15 py-3 text-center hover:bg-white/10"
+              >
+                <div className="font-extrabold text-white">{savedCount}</div>
                 <div className="mt-0.5 text-[10px] text-white/70">저장한 글</div>
-              </div>
-              <div className="py-3 text-center">
-                <div className="font-extrabold text-white">0</div>
+              </Link>
+              <Link href="/chat?tab=ended" className="py-3 text-center hover:bg-white/10">
+                <div className="font-extrabold text-white">{endedSessionCount}</div>
                 <div className="mt-0.5 text-[10px] text-white/70">상담 횟수</div>
-              </div>
+              </Link>
             </div>
             <div aria-hidden className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10" />
           </div>
