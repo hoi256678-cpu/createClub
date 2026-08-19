@@ -44,8 +44,9 @@ async function seed() {
   await mongoose.connect(process.env.MONGODB_URI);
 
   for (const c of COUNSELORS) {
-    // 1단계에는 로그인 기능이 없어 이 비밀번호는 실제로 쓰이지 않는다.
-    // 예측 가능한 값 대신 무작위 값을 넣어 둔다.
+    // seed된 상담사 계정은 무작위 비밀번호를 쓴다 — 실제 로그인 테스트용이 아니라
+    // /api/counselors 목록에 노출할 "표시용" 데이터를 만드는 스크립트다.
+    // 상담사로 로그인해서 테스트하려면 /signup에서 역할을 "상담사"로 선택해 새 계정을 만들 것.
     const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
     await User.findOneAndUpdate(
       { email: c.email },
