@@ -34,6 +34,74 @@ router.get("/counselors", optionalAuth, async (req, res) => {
   }
 });
 
+const SPECIALTY_OPTIONS = ["진로", "학업", "관계", "가족", "감정", "자존감"];
+
+// "/counselors/me"·"/counselors/register"는 "/counselors/:id"보다 먼저 등록해야
+// Express가 "me"/"register"를 :id로 잘못 매칭하지 않는다.
+router.get("/counselors/me", requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== "counselor") {
+      return res.status(403).json({ error: "상담사 계정만 이용할 수 있어요" });
+    }
+    const p = user.counselorProfile || {};
+    res.json({
+      major: p.major || "",
+      year: p.year || "",
+      bio: p.bio || "",
+      specialties: p.specialties || [],
+      verified: !!p.verified,
+    });
+  } catch (err) {
+    console.error("내 상담사 프로필 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.post("/counselors/register", requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== "counselor") {
+      return res.status(403).json({ error: "상담사 계정만 등록할 수 있어요" });
+    }
+
+    const { major, year, bio, specialties } = req.body || {};
+    if (!major?.trim()) {
+      return res.status(400).json({ error: "전공을 입력해주세요" });
+    }
+    if (major.trim().length > 60) {
+      return res.status(400).json({ error: "전공은 60자를 넘을 수 없어요" });
+    }
+    if (year !== undefined && year !== null && String(year).length > 20) {
+      return res.status(400).json({ error: "학년은 20자를 넘을 수 없어요" });
+    }
+    if (!bio?.trim()) {
+      return res.status(400).json({ error: "소개글을 입력해주세요" });
+    }
+    if (bio.trim().length > 300) {
+      return res.status(400).json({ error: "소개글은 300자를 넘을 수 없어요" });
+    }
+    if (!Array.isArray(specialties) || specialties.length === 0) {
+      return res.status(400).json({ error: "태그를 1개 이상 선택해주세요" });
+    }
+    if (specialties.some((t) => !SPECIALTY_OPTIONS.includes(t))) {
+      return res.status(400).json({ error: "선택할 수 없는 태그가 있어요" });
+    }
+
+    user.counselorProfile.major = major.trim();
+    user.counselorProfile.year = year ? String(year).trim() : "";
+    user.counselorProfile.bio = bio.trim();
+    user.counselorProfile.specialties = specialties;
+    user.counselorProfile.verified = true;
+    await user.save();
+
+    res.json({ id: user._id.toString(), verified: true });
+  } catch (err) {
+    console.error("상담사 등록 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 router.get("/counselors/:id", optionalAuth, async (req, res) => {
   try {
     const counselor = await User.findOne({

@@ -610,3 +610,91 @@ test("상담사가 메시지 없이 상담을 종료하면 세션 카운트와 �
   assert.equal(updated.counselorProfile.sessionCount, 112);
   assert.equal(updated.counselorProfile.recentSessions, 9);
 });
+
+async function createFreshCounselor(overrides = {}) {
+  return User.create({
+    name: "새상담사",
+    email: overrides.email ?? "fresh-counselor@test.com",
+    passwordHash: "x",
+    role: "counselor",
+  });
+}
+
+test("갓 가입한(미등록) 상담사는 상담사 목록에 나오지 않는다", async () => {
+  await createFreshCounselor();
+  const res = await request(app).get("/api/counselors");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 0);
+});
+
+test("client 계정이 /counselors/me를 조회하면 403을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const res = await agent.get("/api/counselors/me");
+  assert.equal(res.status, 403);
+});
+
+test("상담사가 자신의(비어있는) 프로필을 /counselors/me로 조회할 수 있다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app).get("/api/counselors/me").set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.major, "");
+  assert.deepEqual(res.body.specialties, []);
+  assert.equal(res.body.verified, false);
+});
+
+test("상담사가 등록하면 verified가 true로 바뀌고 목록에 노출된다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ major: "심리학과 2학년", year: "2학년", bio: "천천히 들어드릴게요", specialties: ["학업", "관계"] });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.verified, true);
+  assert.equal(res.body.id, counselor._id.toString());
+
+  const listRes = await request(app).get("/api/counselors");
+  assert.equal(listRes.body.length, 1);
+  assert.equal(listRes.body[0].name, "새상담사");
+  assert.equal(listRes.body[0].major, "심리학과 2학년");
+  assert.equal(listRes.body[0].intro, "천천히 들어드릴게요");
+  assert.deepEqual(listRes.body[0].tags, ["학업", "관계"]);
+
+  const meRes = await request(app).get("/api/counselors/me").set("Cookie", counselorCookie(counselor));
+  assert.equal(meRes.body.major, "심리학과 2학년");
+  assert.equal(meRes.body.verified, true);
+});
+
+test("client 계정이 상담사 등록을 시도하면 403을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const res = await agent.post("/api/counselors/register").send({ major: "x", bio: "y", specialties: ["학업"] });
+  assert.equal(res.status, 403);
+});
+
+test("전공 없이 등록하면 400을 반환한다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ major: "  ", bio: "안녕하세요", specialties: ["학업"] });
+  assert.equal(res.status, 400);
+});
+
+test("태그 없이 등록하면 400을 반환한다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ major: "심리학과", bio: "안녕하세요", specialties: [] });
+  assert.equal(res.status, 400);
+});
+
+test("허용되지 않은 태그로 등록하면 400을 반환한다", async () => {
+  const counselor = await createFreshCounselor();
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ major: "심리학과", bio: "안녕하세요", specialties: ["없는태그"] });
+  assert.equal(res.status, 400);
+});

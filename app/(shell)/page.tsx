@@ -20,8 +20,9 @@ const QUOTES = [
 export default function HomePage() {
   const { state: auth } = useAuthStatus();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [counselorRegistered, setCounselorRegistered] = useState<boolean | null>(null);
   const quote = QUOTES[0];
-  const hideCounselorEntry = auth.phase === "in" && auth.role === "counselor";
+  const isCounselor = auth.phase === "in" && auth.role === "counselor";
 
   useEffect(() => {
     apiFetch("/api/community/posts")
@@ -29,6 +30,14 @@ export default function HomePage() {
       .then((data: CommunityPost[]) => setPosts(data))
       .catch(() => setPosts([]));
   }, []);
+
+  useEffect(() => {
+    if (!isCounselor) return;
+    apiFetch("/api/counselors/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { verified: boolean } | null) => setCounselorRegistered(data?.verified ?? false))
+      .catch(() => setCounselorRegistered(false));
+  }, [isCounselor]);
 
   const popularPosts = pickPopularPosts(posts);
 
@@ -43,7 +52,14 @@ export default function HomePage() {
           </h1>
           <p className="mt-2 text-sm text-white/80">또래 상담사와 1:1로 이야기를 나눠보세요</p>
           <div className="mt-5 flex flex-wrap gap-2">
-            {!hideCounselorEntry && (
+            {isCounselor ? (
+              <Link
+                href="/counselor-register"
+                className="inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
+              >
+                {counselorRegistered ? "내 상담사 프로필 수정" : "상담사로 등록하기"} →
+              </Link>
+            ) : (
               <Link
                 href="/counselors"
                 className="inline-block rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-primary-dark transition-shadow hover:shadow-card-md"
