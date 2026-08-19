@@ -10,6 +10,7 @@ process.env.FRONTEND_URL = "http://localhost:3000";
 let mongod;
 let app;
 let User;
+let Post;
 let signToken;
 let COOKIE_NAME;
 
@@ -19,6 +20,7 @@ before(async () => {
   await mongoose.connect(process.env.MONGODB_URI);
   app = require("../index");
   User = require("../models/User");
+  Post = require("../models/Post");
   ({ signToken, COOKIE_NAME } = require("../lib/token"));
 });
 
@@ -115,6 +117,91 @@ test("존재하지 않는 사용자를 정지시키면 404를 반환한다", asy
   const missingId = new mongoose.Types.ObjectId().toString();
   const res = await request(app)
     .post(`/api/admin/users/${missingId}/suspend`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+});
+
+async function createPost(overrides = {}) {
+  const author =
+    overrides.authorId ??
+    (await User.create({ name: "글쓴이", email: "author@test.com", passwordHash: "x", role: "client" }))._id;
+  return Post.create({
+    author,
+    tag: "고민",
+    title: overrides.title ?? "제목",
+    body: overrides.body ?? "내용",
+    ...overrides.rest,
+  });
+}
+
+test("비로그인 상태로 관리자 게시글 목록을 조회하면 401을 반환한다", async () => {
+  const res = await request(app).get("/api/admin/posts");
+  assert.equal(res.status, 401);
+});
+
+test("admin은 전체 게시글 목록을 댓글과 함께 조회할 수 있다", async () => {
+  const admin = await createAdmin();
+  const post = await createPost();
+  const commenter = await User.create({ name: "댓글러", email: "cmt@test.com", passwordHash: "x", role: "client" });
+  post.comments.push({ author: commenter._id, text: "댓글입니다" });
+  await post.save();
+
+  const res = await request(app).get("/api/admin/posts").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].title, "제목");
+  assert.equal(res.body[0].comments.length, 1);
+  assert.equal(res.body[0].comments[0].text, "댓글입니다");
+});
+
+test("admin이 게시글을 삭제하면 목록에서 사라진다", async () => {
+  const admin = await createAdmin();
+  const post = await createPost();
+
+  const res = await request(app)
+    .delete(`/api/admin/posts/${post._id}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+
+  const listRes = await request(app).get("/api/admin/posts").set("Cookie", adminCookie(admin));
+  assert.equal(listRes.body.length, 0);
+});
+
+test("존재하지 않는 게시글을 삭제하면 404를 반환한다", async () => {
+  const admin = await createAdmin();
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await request(app)
+    .delete(`/api/admin/posts/${missingId}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+});
+
+test("admin이 댓글 하나를 삭제하면 게시글에는 남고 그 댓글만 사라진다", async () => {
+  const admin = await createAdmin();
+  const post = await createPost();
+  const commenter = await User.create({ name: "댓글러", email: "cmt@test.com", passwordHash: "x", role: "client" });
+  post.comments.push({ author: commenter._id, text: "지울 댓글" });
+  post.comments.push({ author: commenter._id, text: "남길 댓글" });
+  await post.save();
+  const toDelete = post.comments[0]._id.toString();
+
+  const res = await request(app)
+    .delete(`/api/admin/posts/${post._id}/comments/${toDelete}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+
+  const updated = await Post.findById(post._id);
+  assert.equal(updated.comments.length, 1);
+  assert.equal(updated.comments[0].text, "남길 댓글");
+});
+
+test("존재하지 않는 댓글을 삭제하면 404를 반환한다", async () => {
+  const admin = await createAdmin();
+  const post = await createPost();
+  const missingCommentId = new mongoose.Types.ObjectId().toString();
+
+  const res = await request(app)
+    .delete(`/api/admin/posts/${post._id}/comments/${missingCommentId}`)
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
 });
