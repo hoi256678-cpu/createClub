@@ -1,5 +1,5 @@
 export type NotificationItem = {
-  id: number;
+  id: string | number;
   icon: string;
   title: string;
   desc: string;

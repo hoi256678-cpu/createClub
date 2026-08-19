@@ -8,7 +8,7 @@ export default function NotificationsPage() {
   const { items, markRead, markAllRead } = useNotifications();
   const router = useRouter();
 
-  function handleClick(id: number, href?: string) {
+  function handleClick(id: string | number, href?: string) {
     markRead(id);
     if (href) router.push(href);
   }
