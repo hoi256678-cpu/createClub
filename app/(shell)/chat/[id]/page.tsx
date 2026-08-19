@@ -212,17 +212,15 @@ export default function ChatRoomPage() {
                   >
                     상담 종료하기
                   </button>
-                  {room.viewerSide === "client" && (
-                    <button
-                      onClick={() => {
-                        setMenuOpen(false);
-                        openModal("report");
-                      }}
-                      className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-danger hover:bg-bg"
-                    >
-                      신고하기
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openModal("report");
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-danger hover:bg-bg"
+                  >
+                    신고하기
+                  </button>
                 </div>
               )}
             </div>

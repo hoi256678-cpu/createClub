@@ -349,13 +349,17 @@ router.post("/counseling/rooms/:id/report", requireAuth, async (req, res) => {
     if (!room) {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
-    if (room.client.toString() !== req.user.id) {
+    const isClient = room.client.toString() === req.user.id;
+    const isCounselor = room.counselor.toString() === req.user.id;
+    if (!isClient && !isCounselor) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
     }
     if (room.status !== "active") {
       return res.status(400).json({ error: "이미 종료된 상담이에요" });
     }
 
+    // Report.counselor는 "이 방의 상담사가 누구였는지" 메타데이터다 — 상담사가 신고한 경우
+    // reporter와 counselor가 같아지는데, 이는 "상담사 본인이 신고를 접수했다"는 의미로 읽으면 된다.
     await Report.create({ reporter: req.user.id, room: room._id, counselor: room.counselor, reason: reason.trim() });
     room.status = "reported";
     room.endedAt = new Date();

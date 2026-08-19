@@ -434,6 +434,38 @@ test("방 소유자가 아닌 클라이언트가 신고를 요청하면 403을 �
   assert.equal(res.status, 403);
 });
 
+test("상담사도 신고할 수 있다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/report`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({ reason: "부적절한 발언을 했어요" });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "reported");
+
+  const report = await Report.findOne({ room: createRes.body.id });
+  assert.ok(report, "Report 문서가 생성되어야 한다");
+  assert.equal(report.reporter.toString(), counselor._id.toString());
+});
+
+test("당사자가 아닌 상담사가 신고를 요청하면 403을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const otherCounselor = await createCounselor({ email: "counselor2@test.com" });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/report`)
+    .set("Cookie", counselorCookie(otherCounselor))
+    .send({ reason: "부적절한 발언을 했어요" });
+  assert.equal(res.status, 403);
+});
+
 test("클라이언트가 방 목록을 조회하면 otherPartyName이 상담사 이름/전공이다", async () => {
   const counselor = await createCounselor();
   const agent = request.agent(app);
