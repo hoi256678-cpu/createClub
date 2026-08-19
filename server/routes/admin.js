@@ -155,4 +155,49 @@ router.post("/reports/:id/review", requireAuth, requireAdmin, async (req, res) =
   }
 });
 
+function serializePendingCounselor(user) {
+  const p = user.counselorProfile || {};
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    major: p.major || "",
+    year: p.year || "",
+    bio: p.bio || "",
+    specialties: p.specialties || [],
+  };
+}
+
+router.get("/counselors/pending", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const pending = await User.find({
+      role: "counselor",
+      "counselorProfile.verified": false,
+      "counselorProfile.major": { $exists: true, $ne: "" },
+    }).sort({ createdAt: -1 });
+    res.json(pending.map(serializePendingCounselor));
+  } catch (err) {
+    console.error("승인 대기 상담사 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.post("/counselors/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.params.id, role: "counselor" });
+    if (!user) {
+      return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
+    }
+    user.counselorProfile.verified = true;
+    await user.save();
+    res.json({ verified: true });
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
+    }
+    console.error("상담사 승인 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 module.exports = router;

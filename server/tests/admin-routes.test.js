@@ -274,3 +274,64 @@ test("존재하지 않는 신고를 처리하면 404를 반환한다", async () 
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
 });
+
+async function createPendingCounselor(overrides = {}) {
+  return User.create({
+    name: overrides.name ?? "대기상담사",
+    email: overrides.email ?? "pending@test.com",
+    passwordHash: "x",
+    role: "counselor",
+    counselorProfile: {
+      major: "심리학과 2학년",
+      bio: "소개글",
+      specialties: ["학업"],
+      verified: false,
+      ...overrides.counselorProfile,
+    },
+  });
+}
+
+test("비로그인 상태로 승인 대기 상담사 목록을 조회하면 401을 반환한다", async () => {
+  const res = await request(app).get("/api/admin/counselors/pending");
+  assert.equal(res.status, 401);
+});
+
+test("admin은 등록 폼을 제출한(major가 있는) 미승인 상담사만 조회한다", async () => {
+  const admin = await createAdmin();
+  await createPendingCounselor();
+  // 가입만 하고 등록 폼은 제출하지 않은 상담사 (major 없음) — 대기 목록에 나오면 안 됨
+  await User.create({ name: "미등록상담사", email: "unregistered@test.com", passwordHash: "x", role: "counselor" });
+  // 이미 승인된 상담사 — 대기 목록에 나오면 안 됨
+  await createPendingCounselor({ email: "verified@test.com", counselorProfile: { verified: true } });
+
+  const res = await request(app).get("/api/admin/counselors/pending").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].name, "대기상담사");
+  assert.equal(res.body[0].major, "심리학과 2학년");
+  assert.deepEqual(res.body[0].specialties, ["학업"]);
+});
+
+test("admin이 승인하면 verified가 true가 되고 상담사 목록에 노출된다", async () => {
+  const admin = await createAdmin();
+  const pending = await createPendingCounselor();
+
+  const res = await request(app)
+    .post(`/api/admin/counselors/${pending._id}/approve`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.verified, true);
+
+  const listRes = await request(app).get("/api/counselors");
+  assert.equal(listRes.body.length, 1);
+  assert.equal(listRes.body[0].name, "대기상담사");
+});
+
+test("존재하지 않는 상담사를 승인하면 404를 반환한다", async () => {
+  const admin = await createAdmin();
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await request(app)
+    .post(`/api/admin/counselors/${missingId}/approve`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+});

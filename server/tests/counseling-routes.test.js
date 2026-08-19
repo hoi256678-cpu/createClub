@@ -687,7 +687,7 @@ test("상담사가 자신의(비어있는) 프로필을 /counselors/me로 조회
   assert.equal(res.body.verified, false);
 });
 
-test("상담사가 등록하면 이름/verified가 바뀌고 목록에 노출된다", async () => {
+test("신규 상담사가 등록하면 verified가 false로 대기 상태가 되고 목록에 노출되지 않는다", async () => {
   const counselor = await createFreshCounselor();
   const res = await request(app)
     .post("/api/counselors/register")
@@ -700,21 +700,45 @@ test("상담사가 등록하면 이름/verified가 바뀌고 목록에 노출된
       specialties: ["학업", "관계"],
     });
   assert.equal(res.status, 200);
-  assert.equal(res.body.verified, true);
+  assert.equal(res.body.verified, false);
   assert.equal(res.body.id, counselor._id.toString());
   assert.equal(res.body.name, "새이름상담사");
 
   const listRes = await request(app).get("/api/counselors");
-  assert.equal(listRes.body.length, 1);
-  assert.equal(listRes.body[0].name, "새이름상담사");
-  assert.equal(listRes.body[0].major, "심리학과 2학년");
-  assert.equal(listRes.body[0].intro, "천천히 들어드릴게요");
-  assert.deepEqual(listRes.body[0].tags, ["학업", "관계"]);
+  assert.equal(listRes.body.length, 0);
 
   const meRes = await request(app).get("/api/counselors/me").set("Cookie", counselorCookie(counselor));
   assert.equal(meRes.body.name, "새이름상담사");
   assert.equal(meRes.body.major, "심리학과 2학년");
-  assert.equal(meRes.body.verified, true);
+  assert.equal(meRes.body.verified, false);
+});
+
+test("이미 승인된 상담사가 프로필을 수정해도 verified가 유지된다", async () => {
+  const counselor = await createFreshCounselor({ email: "verified-counselor@test.com" });
+  await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({ name: "기존상담사", major: "심리학과 3학년", year: "3학년", bio: "소개", specialties: ["학업"] });
+
+  const User = require("../models/User");
+  await User.findByIdAndUpdate(counselor._id, { "counselorProfile.verified": true });
+
+  const res = await request(app)
+    .post("/api/counselors/register")
+    .set("Cookie", counselorCookie(counselor))
+    .send({
+      name: "기존상담사",
+      major: "심리학과 3학년",
+      year: "3학년",
+      bio: "수정된 소개",
+      specialties: ["학업", "진로"],
+    });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.verified, true);
+
+  const listRes = await request(app).get("/api/counselors");
+  assert.equal(listRes.body.length, 1);
+  assert.equal(listRes.body[0].intro, "수정된 소개");
 });
 
 test("client 계정이 상담사 등록을 시도하면 403을 반환한다", async () => {

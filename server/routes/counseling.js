@@ -101,10 +101,14 @@ router.post("/counselors/register", requireAuth, async (req, res) => {
     user.counselorProfile.year = year ? String(year).trim() : "";
     user.counselorProfile.bio = bio.trim();
     user.counselorProfile.specialties = specialties;
-    user.counselorProfile.verified = true;
+    // 이미 승인된 상담사가 프로필을 수정하는 경우엔 승인 상태를 유지한다.
+    // 신규 등록이거나 아직 미승인인 경우에만 대기 상태로 (재)설정한다.
+    if (user.counselorProfile.verified !== true) {
+      user.counselorProfile.verified = false;
+    }
     await user.save();
 
-    res.json({ id: user._id.toString(), name: user.name, verified: true });
+    res.json({ id: user._id.toString(), name: user.name, verified: user.counselorProfile.verified });
   } catch (err) {
     console.error("상담사 등록 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
