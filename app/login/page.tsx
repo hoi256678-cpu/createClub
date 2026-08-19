@@ -40,7 +40,7 @@ function LoginPageContent() {
       const data = (await res.json()) as {
         error?: string;
         name?: string;
-        role?: "counselor" | "client";
+        role?: "counselor" | "client" | "admin";
       };
 
       if (!res.ok) {
@@ -49,7 +49,9 @@ function LoginPageContent() {
       }
 
       setLoggedIn({ name: data.name!, role: data.role! });
-      router.replace(nextPath);
+      // next 파라미터가 명시되지 않은 채로(기본값 "/") 로그인한 admin은 관리자 페이지로 보낸다.
+      const target = !searchParams.get("next") && data.role === "admin" ? "/admin" : nextPath;
+      router.replace(target);
     } catch {
       setError("백엔드에 연결할 수 없습니다");
     } finally {

@@ -12,7 +12,7 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 
-export type LoggedInUser = { name: string; role: "counselor" | "client" };
+export type LoggedInUser = { name: string; role: "counselor" | "client" | "admin" };
 
 export type AuthState =
   | { phase: "loading" }
