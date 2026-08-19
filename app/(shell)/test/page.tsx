@@ -3,14 +3,17 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import TestResultActions from "@/app/components/TestResultActions";
+import RequireAuth from "@/app/components/RequireAuth";
 import { useTestHistory } from "@/app/hooks/useTestHistory";
 import { TEST_CARDS, TEST_DATA, type TestType, type TestResult } from "./data";
 
 export default function TestPage() {
   return (
-    <Suspense fallback={null}>
-      <TestPageContent />
-    </Suspense>
+    <RequireAuth reason="심리검사 결과를 기록하려면 로그인이 필요해요.">
+      <Suspense fallback={null}>
+        <TestPageContent />
+      </Suspense>
+    </RequireAuth>
   );
 }
 

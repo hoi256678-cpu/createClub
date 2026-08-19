@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { readJSON, writeJSON } from "@/lib/storage";
-
-const KEY = "somit:test:history";
+import { apiFetch } from "@/lib/api";
 
 export type TestRecord = {
   id: string;
@@ -29,25 +27,21 @@ export function useTestHistory() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
-    setRecords(readJSON<TestRecord[]>(KEY, []));
-    setLoaded(true);
+    apiFetch("/api/test/results")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: TestRecord[]) => setRecords(data))
+      .catch(() => setRecords([]))
+      .finally(() => setLoaded(true));
   }, []);
 
-  const add = useCallback((record: Omit<TestRecord, "id" | "takenAt">) => {
-    setRecords((prev) => {
-      const next = [
-        { ...record, id: `${record.type}-${Date.now()}`, takenAt: new Date().toISOString() },
-        ...prev,
-      ].slice(0, 50);
-      writeJSON(KEY, next);
-      return next;
+  const add = useCallback(async (record: Omit<TestRecord, "id" | "takenAt">) => {
+    const res = await apiFetch("/api/test/results", {
+      method: "POST",
+      body: JSON.stringify(record),
     });
-  }, []);
-
-  const clear = useCallback(() => {
-    setRecords([]);
-    writeJSON(KEY, []);
+    if (!res.ok) return;
+    const saved: TestRecord = await res.json();
+    setRecords((prev) => [saved, ...prev]);
   }, []);
 
   /** 같은 검사의 직전 점수 (추이 비교용) */
@@ -59,5 +53,5 @@ export function useTestHistory() {
     [records],
   );
 
-  return { records, loaded, add, clear, previousScore };
+  return { records, loaded, add, previousScore };
 }
