@@ -27,7 +27,7 @@
 
 | Method | Path | 변경 내용 |
 |---|---|---|
-| GET | `/api/counseling/rooms` | `$or: [{client: me}, {counselor: me}]`로 조회(내가 어느 쪽이든 참여한 방). `?status=active` 쿼리로 진행중만 필터(생략 시 전체, 종료/신고 포함). 응답 항목에 `lastMessageAt`(마지막 메시지 시각, 없으면 방 생성 시각), `lastMessageFrom`(`"client"` \| `"counselor"` \| `null`) 필드 추가 — 프론트가 방을 열지 않고도 안읽음 여부를 계산하기 위함. **아래 "응답 필드 보정" 참고** |
+| GET | `/api/counseling/rooms` | `$or: [{client: me}, {counselor: me}]`로 조회(내가 어느 쪽이든 참여한 방, 진행중+종료 전체). 응답 항목에 `lastMessageAt`(마지막 메시지 시각, 없으면 방 생성 시각), `lastMessageFrom`(`"client"` \| `"counselor"` \| `null`) 필드 추가 — 프론트가 방을 열지 않고도 안읽음 여부를 계산하기 위함. **아래 "응답 필드 보정" 참고**. 진행중/전체 탭 필터는 서버 쿼리가 아니라 프론트에서 이미 받은 목록을 `status`로 거르는 방식으로 처리(안읽음 배지가 탭과 무관하게 전체 방 기준이어야 하므로 목록 자체는 항상 전체를 받아야 함) |
 | GET | `/api/counseling/rooms/:id` | 403 체크를 `client===me`에서 `(client===me \|\| counselor===me)`로 확장 |
 | POST | `/api/counseling/rooms/:id/messages` | 403 체크 동일 확장. `from`은 하드코딩 대신 요청자가 room의 `client`인지 `counselor`인지로 자동 결정. `status!=="active"`면 여전히 400 |
 | POST | `/api/counseling/rooms/:id/end` | **양쪽 다 호출 가능하도록 확장.** 요청자가 `client===me`면 기존과 동일(`rating` 1~5 선택 가능, 있으면 상담사 rating running average 갱신). 요청자가 `counselor===me`면 `rating`은 무시(있어도 반영 안 함) — `status:"ended"`, `endedAt`만 기록. 둘 다 아니면 403. 이미 `active`가 아니면 400 |
@@ -64,12 +64,12 @@
 ### `useChatRooms` (`app/hooks/useChatRooms.tsx`)
 
 - 방 목록 조회를 5초 간격 `setInterval`로 재조회. `document.visibilityState !== "visible"`이면 폴링 정지, 다시 보이면 즉시 1회 조회 후 재개
-- 읽음상태를 localStorage(`somit:chat:read`, 방 id → 마지막으로 읽은 시각 ISO 문자열)로 재도입. `unreadCount`(방별 `lastMessageFrom`이 "내가 아닌 쪽"이고 `lastMessageAt`이 저장된 읽은시각보다 최신인 방의 개수)와 `markRoomRead(id)`를 새로 노출
+- 읽음상태를 localStorage(`somit:chat:read`, 방 id → 마지막으로 읽은 시각 ISO 문자열)로 재도입. 방별 "안읽음"은 `room.lastMessageFrom`이 **내 계정 role과 다르고**(role은 방마다 다른 게 아니라 계정 전체에 하나뿐이라 `useAuthStatus().role`로 비교하면 충분), `lastMessageAt`이 저장된 읽은시각보다 최신인 경우로 판정. `unreadCount`(그 조건을 만족하는 방의 개수)와 `markRoomRead(id)`를 새로 노출
 - `ChatRoom` 타입에 `lastMessageAt`, `lastMessageFrom` 추가하고, `counselorId`/`counselorName`/`counselorMajor`/`avatarBg`/`avatarColor`를 `otherPartyId`/`otherPartyName`/`otherPartyMajor`/`otherPartyAvatarBg`/`otherPartyAvatarColor`로 이름 변경 ("응답 필드 보정" 참고)
 
 ### `app/(shell)/chat/page.tsx` (목록)
 
-- 진행중/전체 탭 UI 추가 (`?status=active` 쿼리로 API 재호출)
+- 진행중/전체 탭 UI 추가 (이미 받아온 `rooms` 배열을 `status==="active"`로 클라이언트에서 거르기만 함, API 재호출 없음)
 - role 무관하게 같은 컴포넌트 — 상담사는 여러 클라이언트의 방이 나열됨
 
 ### `app/(shell)/chat/[id]/page.tsx` (상세)
