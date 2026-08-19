@@ -9,6 +9,7 @@ import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import CrisisNotice from "@/app/components/CrisisNotice";
 import { detectCrisis } from "@/lib/crisis";
 import { apiFetch } from "@/lib/api";
+import { usePostCounts } from "@/app/hooks/usePostCounts";
 import { TOPICS } from "../mock";
 
 export default function CommunityWritePage() {
@@ -22,6 +23,7 @@ export default function CommunityWritePage() {
 
 function CommunityWriteForm() {
   const router = useRouter();
+  const { refresh: refreshPostCounts } = usePostCounts();
   const [category, setCategory] = useState<string>(TOPICS[0]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -46,6 +48,7 @@ function CommunityWriteForm() {
         setError(data.error ?? "글 작성에 실패했습니다");
         return;
       }
+      refreshPostCounts();
       router.push(`/community/${data.id}`);
     } catch {
       setError("백엔드에 연결할 수 없습니다");

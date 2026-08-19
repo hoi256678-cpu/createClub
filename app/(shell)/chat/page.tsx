@@ -1,14 +1,21 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
 import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { useChatRooms, type ChatRoom } from "@/app/hooks/useChatRooms";
+import { readJSON, writeJSON } from "@/lib/storage";
 
 type Tab = "active" | "all" | "ended";
+
+const TAB_STORAGE_KEY = "somit:chat:tab";
+
+function isTab(value: unknown): value is Tab {
+  return value === "active" || value === "all" || value === "ended";
+}
 
 export default function ChatListPage() {
   return (
@@ -21,11 +28,27 @@ export default function ChatListPage() {
 function ChatListPageContent() {
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const initialTab: Tab = requestedTab === "all" || requestedTab === "ended" ? requestedTab : "active";
+  const initialTab: Tab = isTab(requestedTab) ? requestedTab : "active";
   const { state: auth } = useAuthStatus();
   const { rooms, loading, isRoomUnread } = useChatRooms();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTabState] = useState<Tab>(initialTab);
   const hideCounselorEntry = auth.phase === "in" && auth.role === "counselor";
+
+  useEffect(() => {
+    // URL에 ?tab=이 명시적으로 지정된 경우(마이페이지 "상담 횟수" 등)엔 그걸 우선한다.
+    // 그렇지 않고 사이드바 "채팅 상담"처럼 탭 없이 들어온 경우엔 마지막으로 보던 탭을 복원한다.
+    if (isTab(requestedTab)) return;
+    const saved = readJSON<Tab | null>(TAB_STORAGE_KEY, null);
+    if (isTab(saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
+      setTabState(saved);
+    }
+  }, [requestedTab]);
+
+  function setTab(next: Tab) {
+    setTabState(next);
+    writeJSON(TAB_STORAGE_KEY, next);
+  }
 
   const visibleRooms =
     tab === "active"

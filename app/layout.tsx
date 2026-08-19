@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/app/hooks/useAuthStatus";
 import { NotificationsProvider } from "@/app/hooks/useNotifications";
 import { ChatRoomsProvider } from "@/app/hooks/useChatRooms";
+import { PostCountsProvider } from "@/app/hooks/usePostCounts";
 
 const suit = localFont({
   src: [
@@ -40,7 +41,9 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-bg text-text-2">
         <AuthProvider>
           <ChatRoomsProvider>
-            <NotificationsProvider>{children}</NotificationsProvider>
+            <NotificationsProvider>
+              <PostCountsProvider>{children}</PostCountsProvider>
+            </NotificationsProvider>
           </ChatRoomsProvider>
         </AuthProvider>
       </body>

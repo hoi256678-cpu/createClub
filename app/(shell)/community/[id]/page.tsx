@@ -7,6 +7,7 @@ import Card from "@/app/components/ui/Card";
 import { apiFetch } from "@/lib/api";
 import { loginHref } from "@/app/components/RequireAuth";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { usePostCounts } from "@/app/hooks/usePostCounts";
 import { TOPICS, TOPIC_EMOJI } from "../mock";
 import { formatRelativeTime } from "../time";
 import type { CommunityPostDetail } from "../types";
@@ -15,6 +16,7 @@ export default function CommunityPostPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { state: auth } = useAuthStatus();
+  const { refresh: refreshPostCounts } = usePostCounts();
   const [post, setPost] = useState<CommunityPostDetail | null | undefined>(undefined);
   const [comment, setComment] = useState("");
 
@@ -60,6 +62,7 @@ export default function CommunityPostPage() {
     if (!res.ok) return;
     const data = (await res.json()) as { saved: boolean };
     setPost({ ...post, savedByMe: data.saved });
+    refreshPostCounts();
   }
 
   async function submitComment() {

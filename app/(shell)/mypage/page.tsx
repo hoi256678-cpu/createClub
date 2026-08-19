@@ -1,45 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/app/components/RequireAuth";
 import { useTestHistory } from "@/app/hooks/useTestHistory";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
+import { usePostCounts } from "@/app/hooks/usePostCounts";
 import { formatRelativeTime } from "../community/time";
-import { apiFetch } from "@/lib/api";
-
-/**
- * 마이페이지를 오갈 때마다 컴포넌트가 다시 마운트되어 useState(0)으로
- * 초기화된다. 마지막으로 불러온 값을 모듈 스코프에 남겨두면, 재방문 시
- * 새로 fetch가 끝나기 전까지 0이 잠깐 보이는 대신 직전 값을 바로 보여준다.
- */
-let cachedPostCount: number | null = null;
-let cachedSavedCount: number | null = null;
 
 export default function MypagePage() {
-  const [postCount, setPostCount] = useState(() => cachedPostCount ?? 0);
-  const [savedCount, setSavedCount] = useState(() => cachedSavedCount ?? 0);
+  const { postCount, savedCount } = usePostCounts();
   const { records } = useTestHistory();
   const { rooms } = useChatRooms();
   const endedSessionCount = rooms.filter((r) => r.status !== "active").length;
-
-  useEffect(() => {
-    apiFetch("/api/community/my-posts/count")
-      .then((res) => (res.ok ? res.json() : { count: 0 }))
-      .then((data: { count: number }) => {
-        cachedPostCount = data.count;
-        setPostCount(data.count);
-      })
-      .catch(() => setPostCount(0));
-
-    apiFetch("/api/community/my-saved-posts/count")
-      .then((res) => (res.ok ? res.json() : { count: 0 }))
-      .then((data: { count: number }) => {
-        cachedSavedCount = data.count;
-        setSavedCount(data.count);
-      })
-      .catch(() => setSavedCount(0));
-  }, []);
 
   return (
     <RequireAuth>
