@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema(
   {
-    from: { type: String, enum: ["client"], required: true },
+    from: { type: String, enum: ["client", "counselor"], required: true },
     text: { type: String, required: true, maxlength: 1000 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

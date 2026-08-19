@@ -127,6 +127,13 @@ async function signupClient(agent, overrides = {}) {
   return payload;
 }
 
+const { signToken, COOKIE_NAME } = require("../lib/token");
+
+function counselorCookie(counselor) {
+  const token = signToken({ id: counselor._id.toString(), role: "counselor" });
+  return `${COOKIE_NAME}=${token}`;
+}
+
 test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성되지만 상담사 통계는 아직 바뀌지 않는다", async () => {
   const counselor = await createCounselor();
   const agent = request.agent(app);
@@ -134,8 +141,8 @@ test("로그인한 클라이언트가 상담사에게 신청하면 방이 생성
 
   const res = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
   assert.equal(res.status, 201);
-  assert.equal(res.body.counselorId, counselor._id.toString());
-  assert.equal(res.body.counselorName, "이지원");
+  assert.equal(res.body.otherPartyId, counselor._id.toString());
+  assert.equal(res.body.otherPartyName, "이지원");
   assert.equal(res.body.status, "active");
 
   // 통계는 실제 메시지가 오간 뒤 종료할 때 반영된다 (신청 시점에는 반영되지 않음)
@@ -412,4 +419,58 @@ test("방 소유자가 아닌 클라이언트가 신고를 요청하면 403을 �
     .post(`/api/counseling/rooms/${createRes.body.id}/report`)
     .send({ reason: "부적절한 발언을 했어요" });
   assert.equal(res.status, 403);
+});
+
+test("클라이언트가 방 목록을 조회하면 otherPartyName이 상담사 이름/전공이다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await agent.get("/api/counseling/rooms");
+  assert.equal(res.status, 200);
+  assert.equal(res.body[0].otherPartyName, "이지원");
+  assert.equal(res.body[0].otherPartyMajor, "상담심리학과 4학년");
+});
+
+test("상담사가 방 목록을 조회하면 자신이 배정된 방만, otherPartyName은 내담자 이름이다", async () => {
+  const counselor = await createCounselor();
+  const otherCounselor = await createCounselor({ email: "counselor2@test.com" });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app).get("/api/counseling/rooms").set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].otherPartyName, "내담자");
+  assert.equal(res.body[0].otherPartyMajor, "");
+
+  const res2 = await request(app).get("/api/counseling/rooms").set("Cookie", counselorCookie(otherCounselor));
+  assert.equal(res2.body.length, 0);
+});
+
+test("상담사가 방 상세를 조회할 수 있다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${createRes.body.id}`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.otherPartyName, "내담자");
+});
+
+test("메시지를 보내면 목록의 lastMessageFrom/lastMessageAt이 갱신된다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  const res = await agent.get("/api/counseling/rooms");
+  assert.equal(res.body[0].lastMessageFrom, "client");
+  assert.ok(res.body[0].lastMessageAt);
 });

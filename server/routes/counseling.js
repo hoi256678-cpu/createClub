@@ -54,22 +54,31 @@ router.get("/counselors/:id", optionalAuth, async (req, res) => {
   }
 });
 
-function serializeRoom(room) {
+const DEFAULT_AVATAR_BG = "#e8eff9";
+const DEFAULT_AVATAR_COLOR = "#7a9cc5";
+
+function serializeRoom(room, viewerId) {
+  const client = room.client;
   const counselor = room.counselor;
-  if (!counselor || typeof counselor.name !== "string") {
-    throw new Error("serializeRoom: room.counselor가 populate되지 않았습니다");
+  if (!client || typeof client.name !== "string" || !counselor || typeof counselor.name !== "string") {
+    throw new Error("serializeRoom: client/counselor가 populate되지 않았습니다");
   }
-  const p = counselor.counselorProfile || {};
+  const isViewerClient = client._id.toString() === viewerId;
+  const other = isViewerClient ? counselor : client;
+  const otherProfile = other.counselorProfile || {};
   const last = room.messages.length ? room.messages[room.messages.length - 1] : null;
+
   return {
     id: room._id.toString(),
-    counselorId: counselor._id.toString(),
-    counselorName: counselor.name,
-    counselorMajor: p.major || "",
-    avatarBg: p.avatarBg || "#e8eff9",
-    avatarColor: p.avatarColor || "#7a9cc5",
+    otherPartyId: other._id.toString(),
+    otherPartyName: other.name,
+    otherPartyMajor: otherProfile.major || "",
+    otherPartyAvatarBg: otherProfile.avatarBg || DEFAULT_AVATAR_BG,
+    otherPartyAvatarColor: otherProfile.avatarColor || DEFAULT_AVATAR_COLOR,
     status: room.status,
     lastMessage: last ? last.text : null,
+    lastMessageAt: last ? last.createdAt : room.createdAt,
+    lastMessageFrom: last ? last.from : null,
     createdAt: room.createdAt,
   };
 }
@@ -97,8 +106,11 @@ router.post("/counseling/rooms", requireAuth, async (req, res) => {
 
     const room = await ChatRoom.create({ client: req.user.id, counselor: counselorId });
 
-    await room.populate("counselor", "name counselorProfile");
-    res.status(201).json(serializeRoom(room));
+    await room.populate([
+      { path: "client", select: "name counselorProfile" },
+      { path: "counselor", select: "name counselorProfile" },
+    ]);
+    res.status(201).json(serializeRoom(room, req.user.id));
   } catch (err) {
     if (err.name === "CastError") {
       return res.status(404).json({ error: "상담사를 찾을 수 없어요" });
@@ -110,10 +122,11 @@ router.post("/counseling/rooms", requireAuth, async (req, res) => {
 
 router.get("/counseling/rooms", requireAuth, async (req, res) => {
   try {
-    const rooms = await ChatRoom.find({ client: req.user.id })
+    const rooms = await ChatRoom.find({ $or: [{ client: req.user.id }, { counselor: req.user.id }] })
       .sort({ createdAt: -1 })
+      .populate("client", "name counselorProfile")
       .populate("counselor", "name counselorProfile");
-    res.json(rooms.map(serializeRoom));
+    res.json(rooms.map((r) => serializeRoom(r, req.user.id)));
   } catch (err) {
     console.error("채팅방 목록 조회 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
@@ -122,14 +135,18 @@ router.get("/counseling/rooms", requireAuth, async (req, res) => {
 
 router.get("/counseling/rooms/:id", requireAuth, async (req, res) => {
   try {
-    const room = await ChatRoom.findById(req.params.id).populate("counselor", "name counselorProfile");
+    const room = await ChatRoom.findById(req.params.id)
+      .populate("client", "name counselorProfile")
+      .populate("counselor", "name counselorProfile");
     if (!room) {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
-    if (room.client.toString() !== req.user.id) {
+    const isParticipant =
+      room.client._id.toString() === req.user.id || room.counselor._id.toString() === req.user.id;
+    if (!isParticipant) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
     }
-    res.json({ ...serializeRoom(room), messages: room.messages.map(serializeMessage) });
+    res.json({ ...serializeRoom(room, req.user.id), messages: room.messages.map(serializeMessage) });
   } catch (err) {
     if (err.name === "CastError") {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
