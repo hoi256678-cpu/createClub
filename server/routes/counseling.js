@@ -195,9 +195,6 @@ router.post("/counseling/rooms/:id/messages", requireAuth, async (req, res) => {
 router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
   try {
     const { rating } = req.body || {};
-    if (rating !== undefined && (typeof rating !== "number" || rating < 1 || rating > 5)) {
-      return res.status(400).json({ error: "평점은 1~5 사이여야 해요" });
-    }
 
     const room = await ChatRoom.findById(req.params.id);
     if (!room) {
@@ -207,6 +204,9 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
     const isCounselor = room.counselor.toString() === req.user.id;
     if (!isClient && !isCounselor) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
+    }
+    if (isClient && rating !== undefined && (typeof rating !== "number" || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: "평점은 1~5 사이여야 해요" });
     }
     if (room.status !== "active") {
       return res.status(400).json({ error: "이미 종료된 상담이에요" });

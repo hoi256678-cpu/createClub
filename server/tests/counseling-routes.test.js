@@ -570,3 +570,39 @@ test("이미 종료된 방을 상담사가 다시 종료하려 하면 400을 반
     .send({});
   assert.equal(res.status, 400);
 });
+
+test("상담사가 잘못된 평점과 함께 종료하면 무시되고 200을 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({ rating: 10 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "ended");
+  assert.equal(res.body.rating, null);
+});
+
+test("상담사가 메시지 없이 상담을 종료하면 세션 카운트와 평점이 바뀌지 않는다", async () => {
+  const counselor = await createCounselor({ counselorProfile: { rating: 4.0, ratingCount: 1 } });
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .post(`/api/counseling/rooms/${createRes.body.id}/end`)
+    .set("Cookie", counselorCookie(counselor))
+    .send({});
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "ended");
+
+  const updated = await User.findById(counselor._id);
+  assert.equal(updated.counselorProfile.rating, 4.0);
+  assert.equal(updated.counselorProfile.ratingCount, 1);
+  assert.equal(updated.counselorProfile.sessionCount, 112);
+  assert.equal(updated.counselorProfile.recentSessions, 9);
+});
