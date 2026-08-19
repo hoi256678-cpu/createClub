@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import AuthStatus from "@/app/components/AuthStatus";
 import NotificationPanel from "@/app/components/shell/NotificationPanel";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
@@ -34,43 +33,28 @@ export default function TopBar({ title }: { title: string }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const badge = unreadCount > 0 && (
-    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
-  );
-
   return (
     <header className="sticky top-0 z-10 flex h-[60px] items-center gap-4 border-b border-border bg-surface px-4 shell:px-8">
       <div className="flex-1 text-[18px] font-extrabold text-text">{title}</div>
       <div className="flex items-center gap-3">
         {auth.phase !== "out" && (
-          <>
-            {/* 모바일: 알림 페이지로 바로 이동 */}
-            <Link
-              href="/notifications"
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-light hover:text-primary-dark shell:hidden"
+          <div className="relative" ref={panelRef}>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-light hover:text-primary-dark"
               title="알림"
             >
               <BellIcon />
-              {badge}
-            </Link>
-
-            {/* 데스크톱: 눌러서 작은 드롭다운으로 열고 닫기 */}
-            <div className="relative hidden shell:block" ref={panelRef}>
-              <button
-                onClick={() => setOpen((v) => !v)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-light hover:text-primary-dark"
-                title="알림"
-              >
-                <BellIcon />
-                {badge}
-              </button>
-              {open && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-surface shadow-card-md">
-                  <NotificationPanel scrollable onNavigate={() => setOpen(false)} />
-                </div>
+              {unreadCount > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
               )}
-            </div>
-          </>
+            </button>
+            {open && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card-md">
+                <NotificationPanel scrollable onNavigate={() => setOpen(false)} />
+              </div>
+            )}
+          </div>
         )}
         <AuthStatus />
       </div>
