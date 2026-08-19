@@ -9,9 +9,11 @@ import { NAV_ITEMS, isNavActive } from "./nav-items";
 export default function Sidebar({ pathname }: { pathname: string }) {
   const { state: auth } = useAuthStatus();
   const { unreadCount } = useChatRooms();
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !(auth.phase === "in" && item.hideForRole === auth.role),
-  );
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (auth.phase === "in" && item.hideForRole === auth.role) return false;
+    if (item.onlyForRole && (auth.phase !== "in" || auth.role !== item.onlyForRole)) return false;
+    return true;
+  });
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col border-r border-border bg-surface shell:flex">

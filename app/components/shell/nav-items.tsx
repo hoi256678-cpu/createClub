@@ -44,11 +44,22 @@ function MypageIcon({ className }: { className?: string }) {
   );
 }
 
+function AdminIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 2l8 3.5v5.5c0 4.8-3.2 8.9-8 10.5-4.8-1.6-8-5.7-8-10.5V5.5z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
 export type NavItem = {
   href: string;
   label: string;
   requiresAuth: boolean;
   hideForRole?: "counselor" | "client";
+  /** 이 역할일 때만 노출한다 (hideForRole과 반대 방향의 필터). */
+  onlyForRole?: "admin";
   Icon: (props: { className?: string }) => React.JSX.Element;
 };
 
@@ -58,6 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/chat", label: "채팅 상담", requiresAuth: true, Icon: ChatIcon },
   { href: "/test", label: "심리검사", requiresAuth: false, hideForRole: "counselor", Icon: TestIcon },
   { href: "/mypage", label: "마이페이지", requiresAuth: true, Icon: MypageIcon },
+  { href: "/admin", label: "관리자", requiresAuth: true, onlyForRole: "admin", Icon: AdminIcon },
 ];
 
 export function isNavActive(pathname: string, href: string): boolean {

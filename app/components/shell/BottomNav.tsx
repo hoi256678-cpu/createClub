@@ -8,9 +8,11 @@ import { NAV_ITEMS, isNavActive } from "./nav-items";
 export default function BottomNav({ pathname }: { pathname: string }) {
   const { state: auth } = useAuthStatus();
   const { unreadCount } = useChatRooms();
-  const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !(auth.phase === "in" && item.hideForRole === auth.role),
-  );
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (auth.phase === "in" && item.hideForRole === auth.role) return false;
+    if (item.onlyForRole && (auth.phase !== "in" || auth.role !== item.onlyForRole)) return false;
+    return true;
+  });
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 flex h-16 items-center justify-around border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] shell:hidden">
