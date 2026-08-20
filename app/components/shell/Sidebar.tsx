@@ -45,7 +45,9 @@ export default function Sidebar({ pathname }: { pathname: string }) {
               <span className="relative">
                 <Icon className="h-[18px] w-[18px]" />
                 {href === "/chat" && unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-danger" />
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold leading-none text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
               </span>
               {label}

@@ -10,12 +10,15 @@ export default function AuthStatus() {
   const router = useRouter();
 
   async function handleLogout() {
+    // 인증이 필요한 페이지(채팅방 등)에 있을 때 setLoggedOut()을 먼저 하면, 그 페이지의
+    // RequireAuth가 먼저 반응해서 "/login?next=<그 페이지>"로 보내버릴 수 있다. 홈으로
+    // 이동을 먼저 시작해두면 상태가 바뀔 때쯤엔 이미 보호되지 않은 홈으로 옮겨가 있다.
+    router.push("/");
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } finally {
       // 네트워크가 실패해도 클라이언트 상태는 반드시 로그아웃으로 내린다.
       setLoggedOut();
-      router.push("/");
     }
   }
 
