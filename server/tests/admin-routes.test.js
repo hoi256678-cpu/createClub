@@ -335,6 +335,26 @@ test("admin이 신고를 처리하면 신고자에게 신고 처리 알림이 �
   assert.equal(notifications[0].read, false);
 });
 
+test("이미 처리된 신고를 다시 처리해도 알림이 중복 생성되지 않는다", async () => {
+  const admin = await createAdmin();
+  const report = await createReport();
+
+  const firstRes = await request(app)
+    .post(`/api/admin/reports/${report._id}/review`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(firstRes.status, 200);
+  assert.equal(firstRes.body.status, "reviewed");
+
+  const secondRes = await request(app)
+    .post(`/api/admin/reports/${report._id}/review`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(secondRes.status, 200);
+  assert.equal(secondRes.body.status, "reviewed");
+
+  const notifications = await Notification.find({ user: report.reporter });
+  assert.equal(notifications.length, 1);
+});
+
 async function createPendingCounselor(overrides = {}) {
   return User.create({
     name: overrides.name ?? "대기상담사",
