@@ -15,7 +15,7 @@ export default function NotificationPanel({
   const { items, markRead, markAllRead, deleteNotification } = useNotifications();
   const router = useRouter();
 
-  function handleClick(id: string | number, href?: string) {
+  function handleClick(id: string, href?: string) {
     markRead(id);
     if (href) router.push(href);
     onNavigate?.();

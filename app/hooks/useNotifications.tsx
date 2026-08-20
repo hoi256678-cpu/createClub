@@ -6,88 +6,130 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { NOTIFICATIONS, type NotificationItem } from "@/app/(shell)/notifications/mock";
+import { apiFetch } from "@/lib/api";
 import { formatRelativeTime } from "@/app/(shell)/community/time";
-import { readJSON, writeJSON } from "@/lib/storage";
 import { useAuthStatus } from "./useAuthStatus";
 import { useChatRooms } from "./useChatRooms";
+import { usePolling } from "./usePolling";
 
-const READ_STORAGE_KEY = "somit:notifications:read";
-const DELETED_STORAGE_KEY = "somit:notifications:deleted";
+const POLL_INTERVAL_MS = 5000;
+
+export type NotificationItem = {
+  id: string;
+  icon: string;
+  title: string;
+  desc: string;
+  time: string;
+  unread: boolean;
+  href?: string;
+};
+
+type ServerNotification = {
+  id: string;
+  icon: string;
+  title: string;
+  desc: string;
+  href?: string;
+  unread: boolean;
+  time: string;
+};
 
 type NotificationsContextValue = {
   items: NotificationItem[];
   unreadCount: number;
-  markRead: (id: string | number) => void;
+  markRead: (id: string) => void;
   markAllRead: () => void;
-  /** 알림을 목록에서 지운다. mock 알림은 다시 보이지 않고, 채팅 알림은 읽음 처리(=배지도 같이 사라짐)와 동일하게 동작한다. */
-  deleteNotification: (id: string | number) => void;
+  /** 알림을 목록에서 지운다. 서버 알림은 삭제 API를 호출하고, 채팅 알림은 읽음 처리(=배지도 같이 사라짐)와 동일하게 동작한다. */
+  deleteNotification: (id: string) => void;
 };
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
+async function fetchNotifications(
+  setNotifications: (updater: (prev: ServerNotification[]) => ServerNotification[]) => void,
+  setLoading: (loading: boolean) => void,
+  isFirstLoad: boolean,
+) {
+  try {
+    const res = await apiFetch("/api/notifications");
+    if (res.ok) {
+      const data = await res.json();
+      setNotifications(() => data);
+    } else if (isFirstLoad) {
+      // 최초 로드 실패는 빈 목록으로 보여주는 게 맞다. 폴링 중 실패(콜드스타트 등)는
+      // 이미 불러온 목록을 그대로 유지해서 화면이 갑자기 비지 않도록 한다.
+      setNotifications(() => []);
+    }
+  } catch {
+    if (isFirstLoad) setNotifications(() => []);
+  } finally {
+    setLoading(false);
+  }
+}
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  // 읽은/삭제한 mock 알림 id 목록만 저장한다. 채팅 알림은 useChatRooms의 읽음상태를 그대로 쓴다.
-  const [readIds, setReadIds] = useState<number[]>([]);
-  const [deletedIds, setDeletedIds] = useState<number[]>([]);
   const { rooms, isRoomUnread, markRoomRead } = useChatRooms();
   const { state: auth } = useAuthStatus();
-  // mock 알림(상담 매칭/심리검사 결과/환영)은 client 전용 시나리오라 상담사 계정에는 보여주지 않는다.
-  const isCounselor = auth.phase === "in" && auth.role === "counselor";
-  const mockNotifications = useMemo(() => (isCounselor ? [] : NOTIFICATIONS), [isCounselor]);
+  const isLoggedIn = auth.phase === "in";
 
-  // localStorage는 렌더 중에 읽으면 서버/클라이언트 HTML이 달라져 하이드레이션이 깨진다.
-  // 반드시 마운트 후 effect에서 읽는다.
+  const [notifications, setNotifications] = useState<ServerNotification[]>([]);
+  const [, setLoading] = useState(true);
+  const firstLoadDoneRef = useRef(false);
+
+  const refresh = useCallback(() => {
+    const isFirstLoad = !firstLoadDoneRef.current;
+    firstLoadDoneRef.current = true;
+    return fetchNotifications(setNotifications, setLoading, isFirstLoad);
+  }, []);
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage는 마운트 후에만 읽을 수 있다
-    setReadIds(readJSON<number[]>(READ_STORAGE_KEY, []));
-    setDeletedIds(readJSON<number[]>(DELETED_STORAGE_KEY, []));
-  }, []);
+    if (!isLoggedIn) {
+      // 로그아웃 상태거나 아직 인증 확인 중이면 조회하지 않는다. 로그아웃 직후엔
+      // 이전 계정의 알림 목록/배지가 남아있지 않도록 비운다.
+      firstLoadDoneRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그아웃 전환 시 이전 목록을 즉시 비운다
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+    refresh();
+  }, [isLoggedIn, refresh]);
 
-  const persist = useCallback((next: number[]) => {
-    setReadIds(next);
-    writeJSON(READ_STORAGE_KEY, next);
-  }, []);
+  usePolling(refresh, isLoggedIn ? POLL_INTERVAL_MS : null);
 
   const markRead = useCallback(
-    (id: string | number) => {
-      if (typeof id === "string" && id.startsWith("chat:")) {
+    (id: string) => {
+      if (id.startsWith("chat:")) {
         const roomId = id.slice("chat:".length);
         const room = rooms.find((r) => r.id === roomId);
         if (room) markRoomRead(room.id, room.lastMessageAt);
         return;
       }
-      setReadIds((prev) => {
-        if (prev.includes(id as number)) return prev;
-        const next = [...prev, id as number];
-        writeJSON(READ_STORAGE_KEY, next);
-        return next;
-      });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+      apiFetch(`/api/notifications/${id}/read`, { method: "POST" }).catch(() => {});
     },
     [rooms, markRoomRead],
   );
 
   const markAllRead = useCallback(() => {
-    persist(mockNotifications.map((n) => n.id as number));
     rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
-  }, [persist, rooms, isRoomUnread, markRoomRead, mockNotifications]);
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    apiFetch("/api/notifications/read-all", { method: "POST" }).catch(() => {});
+  }, [rooms, isRoomUnread, markRoomRead]);
 
   const deleteNotification = useCallback(
-    (id: string | number) => {
-      if (typeof id === "string" && id.startsWith("chat:")) {
+    (id: string) => {
+      if (id.startsWith("chat:")) {
         // 채팅 알림은 별도 저장소가 없다 — 안읽음 상태에서 파생될 뿐이라, 지우는 것도 읽음 처리와 동일하다.
         markRead(id);
         return;
       }
-      setDeletedIds((prev) => {
-        if (prev.includes(id as number)) return prev;
-        const next = [...prev, id as number];
-        writeJSON(DELETED_STORAGE_KEY, next);
-        return next;
-      });
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      apiFetch(`/api/notifications/${id}`, { method: "DELETE" }).catch(() => {});
     },
     [markRead],
   );
@@ -108,15 +150,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [rooms, isRoomUnread],
   );
 
-  const items = useMemo<NotificationItem[]>(
-    () => [
-      ...chatItems,
-      ...mockNotifications
-        .filter((n) => !deletedIds.includes(n.id as number))
-        .map((n) => ({ ...n, unread: n.unread && !readIds.includes(n.id as number) })),
-    ],
-    [chatItems, readIds, deletedIds, mockNotifications],
+  const serverItems = useMemo<NotificationItem[]>(
+    () => notifications.map((n) => ({ ...n, time: formatRelativeTime(n.time) })),
+    [notifications],
   );
+
+  const items = useMemo<NotificationItem[]>(() => [...chatItems, ...serverItems], [chatItems, serverItems]);
 
   const unreadCount = useMemo(() => items.filter((n) => n.unread).length, [items]);
 
