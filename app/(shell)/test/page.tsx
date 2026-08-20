@@ -5,7 +5,23 @@ import { useSearchParams } from "next/navigation";
 import TestResultActions from "@/app/components/TestResultActions";
 import RequireAuth from "@/app/components/RequireAuth";
 import { useTestHistory } from "@/app/hooks/useTestHistory";
-import { TEST_CARDS, TEST_DATA, type TestType, type TestResult } from "./data";
+import { TEST_CARDS, TEST_DATA, type TestType, type TestResult, type TestDef } from "./data";
+
+/**
+ * 점수가 "우려되는 방향"으로 얼마나 치우쳤는지를 0(최선)~1(최악)로 정규화해서
+ * needsSupport/isHighRisk를 판단한다. higherIsBetter인 척도(자존감)는 점수가
+ * 낮을수록, 그 외(스트레스/우울)는 점수가 높을수록 우려되는 쪽이다.
+ */
+function concernLevel(def: TestDef, score: number) {
+  const maxIdx = def.cols.length - 1;
+  const base = def.scoreBase ?? 0;
+  const min = def.questions.length * base;
+  const max = def.questions.length * (maxIdx + base);
+  const range = max - min;
+  const concern = def.higherIsBetter ? max - score : score - min;
+  const ratio = range === 0 ? 0 : concern / range;
+  return { needsSupport: ratio >= 0.5, isHighRisk: ratio >= 0.75 };
+}
 
 export default function TestPage() {
   return (
@@ -42,18 +58,19 @@ function TestPageContent() {
     if (!active) return;
     const def = TEST_DATA[active];
     if (def.questions.some((_, i) => answers[i] === undefined)) return;
+    const maxIdx = def.cols.length - 1;
+    const base = def.scoreBase ?? 0;
     let s = 0;
     def.questions.forEach((_, i) => {
       const v = answers[i];
-      s += def.reverseIdx.includes(i) ? 4 - v : v;
+      const raw = def.reverseIdx.includes(i) ? maxIdx - v : v;
+      s += raw + base;
     });
     const outcome = def.getResult(s);
     setScore(s);
     setResult(outcome);
 
-    // 최고 구간(마지막 결과 단계)에 해당하면 지원이 필요한 상태로 본다.
-    const max = def.questions.length * 4;
-    const needsSupport = s >= max * 0.5;
+    const { needsSupport } = concernLevel(def, s);
     const prev = previousScore(active);
     setDelta(prev === null ? null : s - prev);
     add({ type: active, title: def.title, score: s, label: outcome.label, color: outcome.color, needsSupport });
@@ -71,9 +88,9 @@ function TestPageContent() {
               className="relative flex min-h-[130px] flex-col gap-2.5 overflow-hidden rounded-2xl p-5 text-left text-white transition-transform hover:-translate-y-1"
               style={{ background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})` }}
             >
-              <div className="text-[11px] font-bold text-white/75">{t.label}</div>
-              <div className="text-lg font-extrabold leading-snug">{t.title}</div>
-              <div className="mt-auto text-xs text-white/70">{t.sub}</div>
+              <div className="pr-10 text-[11px] font-bold text-white/75">{t.label}</div>
+              <div className="pr-10 text-lg font-extrabold leading-snug">{t.title}</div>
+              <div className="mt-auto pr-10 text-xs text-white/70">{t.sub}</div>
               <div className="absolute bottom-3.5 right-4 text-4xl opacity-85">{t.emoji}</div>
             </button>
           ))}
@@ -102,11 +119,7 @@ function TestPageContent() {
           </div>
           <div className="mb-3 text-lg font-bold text-text">{result.label}</div>
           <div className="text-sm leading-relaxed text-text-muted">{result.desc}</div>
-          <TestResultActions
-            needsSupport={score >= def.questions.length * 4 * 0.5}
-            isHighRisk={score >= def.questions.length * 4 * 0.75}
-            delta={delta}
-          />
+          <TestResultActions {...concernLevel(def, score)} delta={delta} />
           <button
             onClick={() => setActive(null)}
             className="mt-3 text-sm font-bold text-text-muted"

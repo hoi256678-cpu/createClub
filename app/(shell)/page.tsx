@@ -91,9 +91,9 @@ export default function HomePage() {
               className="relative flex min-h-[130px] flex-col gap-2.5 overflow-hidden rounded-2xl p-5 text-white transition-transform hover:-translate-y-1"
               style={{ background: `linear-gradient(135deg, ${t.gradientFrom}, ${t.gradientTo})` }}
             >
-              <div className="text-[11px] font-bold text-white/75">{t.label}</div>
-              <div className="text-lg font-extrabold leading-snug">{t.title}</div>
-              <div className="mt-auto text-xs text-white/70">{t.sub}</div>
+              <div className="pr-10 text-[11px] font-bold text-white/75">{t.label}</div>
+              <div className="pr-10 text-lg font-extrabold leading-snug">{t.title}</div>
+              <div className="mt-auto pr-10 text-xs text-white/70">{t.sub}</div>
               <div className="absolute bottom-3.5 right-4 text-4xl opacity-85">{t.emoji}</div>
             </Link>
           ))}
