@@ -13,6 +13,7 @@ let User;
 let Post;
 let Report;
 let ChatRoom;
+let Notification;
 let signToken;
 let COOKIE_NAME;
 
@@ -25,6 +26,7 @@ before(async () => {
   Post = require("../models/Post");
   Report = require("../models/Report");
   ChatRoom = require("../models/ChatRoom");
+  Notification = require("../models/Notification");
   ({ signToken, COOKIE_NAME } = require("../lib/token"));
 });
 
@@ -316,6 +318,21 @@ test("존재하지 않는 신고를 처리하면 404를 반환한다", async () 
     .post(`/api/admin/reports/${missingId}/review`)
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
+});
+
+test("admin이 신고를 처리하면 신고자에게 신고 처리 알림이 생성된다", async () => {
+  const admin = await createAdmin();
+  const report = await createReport();
+
+  const res = await request(app)
+    .post(`/api/admin/reports/${report._id}/review`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+
+  const notifications = await Notification.find({ user: report.reporter });
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].type, "report_reviewed");
+  assert.equal(notifications[0].read, false);
 });
 
 async function createPendingCounselor(overrides = {}) {

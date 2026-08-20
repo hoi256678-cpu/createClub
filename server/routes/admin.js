@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const Post = require("../models/Post");
 const Report = require("../models/Report");
+const Notification = require("../models/Notification");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
@@ -148,6 +149,19 @@ router.post("/reports/:id/review", requireAuth, requireAdmin, async (req, res) =
     }
     report.status = "reviewed";
     await report.save();
+
+    try {
+      await Notification.create({
+        user: report.reporter,
+        type: "report_reviewed",
+        icon: "📮",
+        title: "신고가 처리됐어요",
+        desc: "신고해주신 내용을 확인했어요. 이용해주셔서 감사합니다.",
+      });
+    } catch (notifyErr) {
+      console.error("신고 처리 알림 생성 중 오류:", notifyErr);
+    }
+
     res.json({ status: report.status });
   } catch (err) {
     if (err.name === "CastError") {
