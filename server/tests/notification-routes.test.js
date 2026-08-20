@@ -89,6 +89,19 @@ test("로그인한 사용자는 본인의 알림만 조회한다", async () => {
   assert.equal(res.body.length, 1);
   assert.equal(res.body[0].title, "내 알림");
   assert.equal(res.body[0].unread, true);
+
+  const item = res.body[0];
+  assert.equal(typeof item.id, "string");
+  assert.ok(item.id.length > 0);
+  assert.equal(typeof item.icon, "string");
+  assert.ok(item.icon.length > 0);
+  assert.equal(typeof item.title, "string");
+  assert.ok(item.title.length > 0);
+  assert.equal(typeof item.desc, "string");
+  assert.ok(item.desc.length > 0);
+  assert.equal(typeof item.unread, "boolean");
+  assert.equal(typeof item.time, "string");
+  assert.ok(!Number.isNaN(Date.parse(item.time)));
 });
 
 test("알림을 읽음 처리하면 unread가 false가 된다", async () => {
