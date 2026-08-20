@@ -9,6 +9,7 @@ const communityRouter = require("./routes/community");
 const { router: counselingRouter } = require("./routes/counseling");
 const testRouter = require("./routes/test");
 const adminRouter = require("./routes/admin");
+const notificationsRouter = require("./routes/notifications");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -33,6 +34,7 @@ app.use("/api/community", communityRouter);
 app.use("/api", counselingRouter);
 app.use("/api/test", testRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/notifications", notificationsRouter);
 
 async function start() {
   if (!MONGODB_URI) {
