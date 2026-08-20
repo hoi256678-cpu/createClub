@@ -51,23 +51,27 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(nul
 
 async function fetchNotifications(
   setNotifications: (updater: (prev: ServerNotification[]) => ServerNotification[]) => void,
-  setLoading: (loading: boolean) => void,
   isFirstLoad: boolean,
+  generationRef: { current: number },
+  myGeneration: number,
 ) {
   try {
     const res = await apiFetch("/api/notifications");
+    // 이 요청이 출발한 뒤에 낙관적 업데이트(읽음/삭제)가 일어났다면 이 응답은 이미 낡은 정보다.
+    if (myGeneration !== generationRef.current) return;
     if (res.ok) {
       const data = await res.json();
-      setNotifications(() => data);
+      if (myGeneration !== generationRef.current) return;
+      // API가 배열이 아닌 값을 반환하는 경우(예상 밖의 200 응답)에도 화면이 깨지지 않도록 방어한다.
+      setNotifications(() => (Array.isArray(data) ? data : []));
     } else if (isFirstLoad) {
       // 최초 로드 실패는 빈 목록으로 보여주는 게 맞다. 폴링 중 실패(콜드스타트 등)는
       // 이미 불러온 목록을 그대로 유지해서 화면이 갑자기 비지 않도록 한다.
       setNotifications(() => []);
     }
   } catch {
+    if (myGeneration !== generationRef.current) return;
     if (isFirstLoad) setNotifications(() => []);
-  } finally {
-    setLoading(false);
   }
 }
 
@@ -77,13 +81,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const isLoggedIn = auth.phase === "in";
 
   const [notifications, setNotifications] = useState<ServerNotification[]>([]);
-  const [, setLoading] = useState(true);
   const firstLoadDoneRef = useRef(false);
+
+  // 요청 세대(generation) 번호. markRead/markAllRead/deleteNotification처럼
+  // "확실한" 낙관적 업데이트가 일어나면 번호를 올려서, 그보다 먼저 출발한 GET 응답이
+  // 뒤늦게 도착해 낙관적 업데이트를 덮어써버리는 걸 막는다 (useAuthStatus와 동일한 패턴).
+  const generationRef = useRef(0);
 
   const refresh = useCallback(() => {
     const isFirstLoad = !firstLoadDoneRef.current;
     firstLoadDoneRef.current = true;
-    return fetchNotifications(setNotifications, setLoading, isFirstLoad);
+    const myGeneration = generationRef.current;
+    return fetchNotifications(setNotifications, isFirstLoad, generationRef, myGeneration);
   }, []);
 
   useEffect(() => {
@@ -93,7 +102,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       firstLoadDoneRef.current = false;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그아웃 전환 시 이전 목록을 즉시 비운다
       setNotifications([]);
-      setLoading(false);
       return;
     }
     refresh();
@@ -109,17 +117,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (room) markRoomRead(room.id, room.lastMessageAt);
         return;
       }
+      generationRef.current += 1;
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
-      apiFetch(`/api/notifications/${id}/read`, { method: "POST" }).catch(() => {});
+      // 성공/실패 여부와 무관하게 서버 상태로 다시 맞춘다 — 실패 시 낙관적 업데이트를
+      // 최대 5초(다음 폴링)가 아니라 이 요청이 끝나는 즉시 되돌리기 위함이다.
+      apiFetch(`/api/notifications/${id}/read`, { method: "POST" })
+        .catch(() => {})
+        .finally(() => refresh());
     },
-    [rooms, markRoomRead],
+    [rooms, markRoomRead, refresh],
   );
 
   const markAllRead = useCallback(() => {
     rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
+    generationRef.current += 1;
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-    apiFetch("/api/notifications/read-all", { method: "POST" }).catch(() => {});
-  }, [rooms, isRoomUnread, markRoomRead]);
+    apiFetch("/api/notifications/read-all", { method: "POST" })
+      .catch(() => {})
+      .finally(() => refresh());
+  }, [rooms, isRoomUnread, markRoomRead, refresh]);
 
   const deleteNotification = useCallback(
     (id: string) => {
@@ -128,10 +144,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         markRead(id);
         return;
       }
+      generationRef.current += 1;
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-      apiFetch(`/api/notifications/${id}`, { method: "DELETE" }).catch(() => {});
+      apiFetch(`/api/notifications/${id}`, { method: "DELETE" })
+        .catch(() => {})
+        .finally(() => refresh());
     },
-    [markRead],
+    [markRead, refresh],
   );
 
   const chatItems = useMemo<NotificationItem[]>(
