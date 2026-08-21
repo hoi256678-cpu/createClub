@@ -41,6 +41,32 @@ export default function ChatRoomPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const firstLoadDoneRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  // 100dvh는 iOS Safari 툴바 접힘/펼침만 반영하고 키보드 높이는 반영하지 않는다.
+  // 그래서 키보드가 올라와도 CSS만으로는 이 창이 줄어들지 않아 입력창이 키보드에 안 붙고,
+  // Safari가 입력창을 보여주려고 페이지를 스크롤시키면서 화면이 통째로 튀는 것처럼 보인다.
+  // window.visualViewport는 키보드를 뺀 실제 보이는 영역을 알려주므로, 그 값 - 이 창의
+  // 상단 위치로 높이를 직접 계산해 키보드가 뜬 만큼 정확히 줄어들게 한다.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = containerRef.current;
+    if (!vv || !el) return;
+
+    function update() {
+      const top = el!.getBoundingClientRect().top;
+      setViewportHeight(vv!.height - top);
+    }
+
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
 
   function openModal(next: "end" | "report" | null) {
     setModalError(null);
@@ -181,7 +207,13 @@ export default function ChatRoomPage() {
 
   return (
     <RequireAuth>
-      <div className="flex h-[calc(100dvh-200px)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shell:h-[calc(100dvh-160px)]">
+      {/* h-[calc(100dvh-...)]는 JS(visualViewport)가 아직 못 붙었을 때의 초기 폴백이고,
+          평소엔 키보드 접힘/펼침에 맞춰 style.height로 즉시 덮어쓴다.
+          transition은 그 사이(수치가 살짝 어긋나는 순간)를 부드럽게 눈속임한다. */}
+      <div
+        ref={containerRef}
+        style={viewportHeight != null ? { height: viewportHeight } : undefined}
+        className="flex h-[calc(100dvh-200px)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shell:h-[calc(100dvh-160px)] transition-[height] duration-200 ease-out">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3">
           <button onClick={() => router.back()} className="text-text-muted">
             ←
