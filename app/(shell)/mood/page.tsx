@@ -74,6 +74,11 @@ export default function MoodPage() {
     const d = new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
   });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  function selectDate(date: string) {
+    setSelectedDate((prev) => (prev === date ? null : date));
+  }
 
   useEffect(() => {
     const loaded = readJSON<MoodEntry[]>(KEY, []);
@@ -230,18 +235,52 @@ export default function MoodPage() {
               const mood = cell.entry ? MOODS.find((m) => m.score === cell.entry!.score) : null;
               const isToday = cell.date === todayKey();
               return (
-                <div
+                <button
                   key={cell.date}
-                  className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm ${
+                  type="button"
+                  onClick={() => cell.entry && selectDate(cell.date)}
+                  disabled={!cell.entry}
+                  aria-pressed={selectedDate === cell.date}
+                  className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm transition-colors ${
                     isToday ? "border-2 border-primary-dark" : "border border-transparent"
-                  }`}
+                  } ${
+                    selectedDate === cell.date ? "bg-primary-light" : ""
+                  } ${cell.entry ? "cursor-pointer hover:bg-primary-light" : "cursor-default"}`}
                 >
-                  <span>{mood ? mood.emoji : "·"}</span>
+                  <span>{mood ? mood.emoji : <span className="text-text-faint">·</span>}</span>
                   <span className="text-[9px] text-text-faint">{cell.day}</span>
-                </div>
+                </button>
               );
             })}
           </div>
+
+          {selectedDate && (() => {
+            const entry = entries.find((e) => e.date === selectedDate);
+            if (!entry) return null;
+            const mood = MOODS.find((m) => m.score === entry.score)!;
+            return (
+              <div className="mt-4 rounded-xl border border-border bg-bg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{mood.emoji}</span>
+                  <span className="text-sm font-bold text-text">
+                    {selectedDate} · {mood.label}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-col gap-1">
+                  {CHECKS.map((c) => {
+                    const on = entry.checks.includes(c.id);
+                    return (
+                      <div key={c.id} className="flex items-center gap-2 text-[12px]">
+                        <span className={on ? "text-primary-dark" : "text-text-faint"}>{on ? "✓" : "○"}</span>
+                        <span className={on ? "text-text" : "text-text-faint"}>{c.text}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {entry.note && <p className="mt-2 text-[13px] leading-relaxed text-text-2">{entry.note}</p>}
+              </div>
+            );
+          })()}
 
           {/*
             기분 기록은 사용자가 혼자 쓰는 일기에 가깝다.
