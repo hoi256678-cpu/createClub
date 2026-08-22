@@ -14,6 +14,7 @@ let Post;
 let Report;
 let ChatRoom;
 let Notification;
+let TestResult;
 let signToken;
 let COOKIE_NAME;
 
@@ -27,6 +28,7 @@ before(async () => {
   Report = require("../models/Report");
   ChatRoom = require("../models/ChatRoom");
   Notification = require("../models/Notification");
+  TestResult = require("../models/TestResult");
   ({ signToken, COOKIE_NAME } = require("../lib/token"));
 });
 
@@ -425,4 +427,80 @@ test("신고자 계정이 삭제돼도 admin 신고 목록 조회는 500 대신 
   const res = await request(app).get("/api/admin/reports").set("Cookie", adminCookie(admin));
   assert.equal(res.status, 200);
   assert.equal(res.body[0].reporterName, "(탈퇴한 회원)");
+});
+
+test("admin이 사용자를 삭제하면 계정/알림/심리검사 결과가 삭제되고 활성 상담방은 종료된다", async () => {
+  const admin = await createAdmin();
+  const target = await User.create({
+    name: "삭제될유저",
+    email: "delete-target@test.com",
+    passwordHash: "x",
+    role: "client",
+  });
+  const counselor = await createPendingCounselor({ email: "counselor-for-delete@test.com" });
+  const room = await ChatRoom.create({ client: target._id, counselor: counselor._id, status: "active" });
+  await Notification.create({
+    user: target._id,
+    type: "report_reviewed",
+    icon: "📮",
+    title: "제목",
+    desc: "설명",
+  });
+  await TestResult.create({
+    user: target._id,
+    type: "pss",
+    title: "스트레스 검사",
+    score: 10,
+    label: "보통",
+    color: "#000000",
+    needsSupport: false,
+  });
+
+  const res = await request(app)
+    .delete(`/api/admin/users/${target._id}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+
+  assert.equal(await User.findById(target._id), null);
+  assert.equal(await Notification.countDocuments({ user: target._id }), 0);
+  assert.equal(await TestResult.countDocuments({ user: target._id }), 0);
+
+  const updatedRoom = await ChatRoom.findById(room._id);
+  assert.equal(updatedRoom.status, "ended");
+});
+
+test("admin 계정은 이 엔드포인트로 삭제할 수 없다", async () => {
+  const admin = await createAdmin();
+  const otherAdmin = await createAdmin({ email: "other-admin@test.com" });
+
+  const res = await request(app)
+    .delete(`/api/admin/users/${otherAdmin._id}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 400);
+
+  assert.ok(await User.findById(otherAdmin._id));
+});
+
+test("존재하지 않는 사용자를 삭제하면 404를 반환한다", async () => {
+  const admin = await createAdmin();
+  const missingId = new mongoose.Types.ObjectId().toString();
+
+  const res = await request(app)
+    .delete(`/api/admin/users/${missingId}`)
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+});
+
+test("비로그인 상태로 사용자 삭제를 시도하면 401을 반환한다", async () => {
+  const target = await User.create({
+    name: "타겟",
+    email: "target-unauth@test.com",
+    passwordHash: "x",
+    role: "client",
+  });
+
+  const res = await request(app).delete(`/api/admin/users/${target._id}`);
+  assert.equal(res.status, 401);
+
+  assert.ok(await User.findById(target._id));
 });

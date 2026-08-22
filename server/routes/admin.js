@@ -3,6 +3,8 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const Report = require("../models/Report");
 const Notification = require("../models/Notification");
+const ChatRoom = require("../models/ChatRoom");
+const TestResult = require("../models/TestResult");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
@@ -47,6 +49,36 @@ router.post("/users/:id/suspend", requireAuth, requireAdmin, async (req, res) =>
       return res.status(404).json({ error: "사용자를 찾을 수 없어요" });
     }
     console.error("사용자 정지 처리 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.delete("/users/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "사용자를 찾을 수 없어요" });
+    }
+    if (user.role === "admin") {
+      return res.status(400).json({ error: "관리자 계정은 삭제할 수 없어요" });
+    }
+
+    // 계정을 삭제해도 게시글/댓글/상담 채팅 기록은 남긴다(상대방 데이터 보존) —
+    // DELETE /api/auth/me(본인 탈퇴)와 동일한 정책.
+    await ChatRoom.updateMany(
+      { $or: [{ client: user._id }, { counselor: user._id }], status: "active" },
+      { status: "ended", endedAt: new Date() }
+    );
+    await Notification.deleteMany({ user: user._id });
+    await TestResult.deleteMany({ user: user._id });
+    await user.deleteOne();
+
+    res.json({});
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "사용자를 찾을 수 없어요" });
+    }
+    console.error("사용자 삭제 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });
