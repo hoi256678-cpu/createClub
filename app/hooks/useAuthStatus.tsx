@@ -12,12 +12,19 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 
-export type LoggedInUser = { name: string; role: "counselor" | "client" | "admin" };
+export type NotificationPrefs = { chatMessages: boolean; systemAlerts: boolean };
 
-export type AuthState =
-  | { phase: "loading" }
-  | { phase: "out" }
-  | ({ phase: "in" } & LoggedInUser);
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { chatMessages: true, systemAlerts: true };
+
+export type LoggedInUser = {
+  name: string;
+  role: "counselor" | "client" | "admin";
+  notificationPrefs?: NotificationPrefs;
+};
+
+type LoggedInAuth = { name: string; role: "counselor" | "client" | "admin"; notificationPrefs: NotificationPrefs };
+
+export type AuthState = { phase: "loading" } | { phase: "out" } | ({ phase: "in" } & LoggedInAuth);
 
 type AuthContextValue = {
   state: AuthState;
@@ -27,6 +34,8 @@ type AuthContextValue = {
   setLoggedOut: () => void;
   /** 서버에 현재 세션을 다시 물어본다. */
   refresh: () => Promise<void>;
+  /** 알림 설정을 낙관적으로 반영하고 서버에 저장한다. 실패하면 refresh()로 되돌린다. */
+  updateNotificationPrefs: (patch: Partial<NotificationPrefs>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -65,7 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const data = (await res.json()) as LoggedInUser;
       if (myGeneration !== generationRef.current || !mountedRef.current) return;
-      setState({ phase: "in", name: data.name, role: data.role });
+      setState({
+        phase: "in",
+        name: data.name,
+        role: data.role,
+        notificationPrefs: data.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS,
+      });
     } catch {
       if (myGeneration !== generationRef.current || !mountedRef.current) return;
       setState({ phase: "out" });
@@ -73,11 +87,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLoggedIn = useCallback(
-    (user: LoggedInUser) => commit({ phase: "in", name: user.name, role: user.role }),
+    (user: LoggedInUser) =>
+      commit({
+        phase: "in",
+        name: user.name,
+        role: user.role,
+        notificationPrefs: user.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS,
+      }),
     [commit],
   );
 
   const setLoggedOut = useCallback(() => commit({ phase: "out" }), [commit]);
+
+  const updateNotificationPrefs = useCallback(
+    (patch: Partial<NotificationPrefs>) => {
+      generationRef.current += 1;
+      setState((prev) =>
+        prev.phase === "in" ? { ...prev, notificationPrefs: { ...prev.notificationPrefs, ...patch } } : prev,
+      );
+      apiFetch("/api/auth/notification-prefs", { method: "PATCH", body: JSON.stringify(patch) })
+        .then((res) => {
+          if (!res.ok) refresh();
+        })
+        .catch(() => refresh());
+    },
+    [refresh],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 세션 조회, setState는 refresh() 내부 await 이후에 일어난다
@@ -108,8 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh, commit]);
 
   const value = useMemo(
-    () => ({ state, setLoggedIn, setLoggedOut, refresh }),
-    [state, setLoggedIn, setLoggedOut, refresh],
+    () => ({ state, setLoggedIn, setLoggedOut, refresh, updateNotificationPrefs }),
+    [state, setLoggedIn, setLoggedOut, refresh, updateNotificationPrefs],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

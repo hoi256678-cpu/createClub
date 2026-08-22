@@ -12,7 +12,7 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatRelativeTime } from "@/app/(shell)/community/time";
-import { useAuthStatus } from "./useAuthStatus";
+import { useAuthStatus, DEFAULT_NOTIFICATION_PREFS } from "./useAuthStatus";
 import { useChatRooms } from "./useChatRooms";
 import { usePolling } from "./usePolling";
 
@@ -79,6 +79,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { rooms, isRoomUnread, markRoomRead } = useChatRooms();
   const { state: auth } = useAuthStatus();
   const isLoggedIn = auth.phase === "in";
+  const notificationPrefs = auth.phase === "in" ? auth.notificationPrefs : DEFAULT_NOTIFICATION_PREFS;
 
   const [notifications, setNotifications] = useState<ServerNotification[]>([]);
   const firstLoadDoneRef = useRef(false);
@@ -155,23 +156,26 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const chatItems = useMemo<NotificationItem[]>(
     () =>
-      rooms
-        .filter(isRoomUnread)
-        .map((r) => ({
-          id: `chat:${r.id}`,
-          icon: "💬",
-          title: `${r.otherPartyName}님이 메시지를 보냈어요`,
-          desc: r.lastMessage ?? "",
-          time: formatRelativeTime(r.lastMessageAt),
-          unread: true,
-          href: `/chat/${r.id}`,
-        })),
-    [rooms, isRoomUnread],
+      notificationPrefs.chatMessages
+        ? rooms
+            .filter(isRoomUnread)
+            .map((r) => ({
+              id: `chat:${r.id}`,
+              icon: "💬",
+              title: `${r.otherPartyName}님이 메시지를 보냈어요`,
+              desc: r.lastMessage ?? "",
+              time: formatRelativeTime(r.lastMessageAt),
+              unread: true,
+              href: `/chat/${r.id}`,
+            }))
+        : [],
+    [rooms, isRoomUnread, notificationPrefs.chatMessages],
   );
 
   const serverItems = useMemo<NotificationItem[]>(
-    () => notifications.map((n) => ({ ...n, time: formatRelativeTime(n.time) })),
-    [notifications],
+    () =>
+      notificationPrefs.systemAlerts ? notifications.map((n) => ({ ...n, time: formatRelativeTime(n.time) })) : [],
+    [notifications, notificationPrefs.systemAlerts],
   );
 
   const items = useMemo<NotificationItem[]>(() => [...chatItems, ...serverItems], [chatItems, serverItems]);
