@@ -14,6 +14,9 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
     if (!title?.trim() || !body?.trim()) {
       return res.status(400).json({ error: "제목과 내용을 모두 입력해주세요" });
     }
+    if (title.trim().length > 100 || body.trim().length > 2000) {
+      return res.status(400).json({ error: "제목은 100자, 내용은 2000자를 넘을 수 없어요" });
+    }
     const notice = await Notice.create({ title: title.trim(), body: body.trim() });
     res.status(201).json(serializeNotice(notice));
   } catch (err) {
@@ -33,11 +36,17 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
       if (!title.trim()) {
         return res.status(400).json({ error: "제목을 입력해주세요" });
       }
+      if (title.trim().length > 100) {
+        return res.status(400).json({ error: "제목은 100자를 넘을 수 없어요" });
+      }
       notice.title = title.trim();
     }
     if (typeof body === "string") {
       if (!body.trim()) {
         return res.status(400).json({ error: "내용을 입력해주세요" });
+      }
+      if (body.trim().length > 2000) {
+        return res.status(400).json({ error: "내용은 2000자를 넘을 수 없어요" });
       }
       notice.body = body.trim();
     }

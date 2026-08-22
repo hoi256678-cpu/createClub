@@ -87,6 +87,15 @@ test("제목이나 내용이 비어있으면 400을 반환한다", async () => {
   assert.equal(res.status, 400);
 });
 
+test("내용이 2000자를 초과하면 400을 반환한다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: "a".repeat(2001) });
+  assert.equal(res.status, 400);
+});
+
 test("admin이 공지를 수정하면 반영된다", async () => {
   const admin = await createAdmin();
   const notice = await Notice.create({ title: "원본", body: "원본 내용" });

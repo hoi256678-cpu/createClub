@@ -108,6 +108,7 @@ export default function AdminNoticesPage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="제목"
+            maxLength={100}
             className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
           />
           <textarea
@@ -115,6 +116,7 @@ export default function AdminNoticesPage() {
             onChange={(e) => setNewBody(e.target.value)}
             placeholder="내용"
             rows={4}
+            maxLength={2000}
             className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
           />
           {formError && <p className="text-xs font-semibold text-danger">{formError}</p>}
@@ -149,12 +151,14 @@ export default function AdminNoticesPage() {
                 <input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
+                  maxLength={100}
                   className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
                 />
                 <textarea
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   rows={4}
+                  maxLength={2000}
                   className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
                 />
                 {formError && <p className="text-xs font-semibold text-danger">{formError}</p>}

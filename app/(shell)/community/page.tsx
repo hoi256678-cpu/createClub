@@ -118,17 +118,21 @@ function CommunityPageContent() {
         />
 
         {tab === "notice" ? (
-          <div className="flex flex-col gap-2">
-            {notices.map((n) => (
-              <Link key={n.id} href={`/community/notice/${n.id}`}>
-                <Card className="cursor-pointer transition-shadow hover:shadow-card">
-                  <div className="text-sm font-bold text-primary-dark">공지</div>
-                  <div className="mt-1 font-bold text-text">{n.title}</div>
-                  <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          notices.length === 0 ? (
+            <div className="py-16 text-center text-text-faint">공지가 없어요</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {notices.map((n) => (
+                <Link key={n.id} href={`/community/notice/${n.id}`}>
+                  <Card className="cursor-pointer transition-shadow hover:shadow-card">
+                    <div className="text-sm font-bold text-primary-dark">공지</div>
+                    <div className="mt-1 font-bold text-text">{n.title}</div>
+                    <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )
         ) : loading ? (
           <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>
         ) : filtered.length === 0 ? (
@@ -195,17 +199,21 @@ function CommunityPageContent() {
         </Card>
         <Card>
           <div className="mb-3 font-extrabold text-text">📋 공지사항</div>
-          <div className="flex flex-col divide-y divide-border">
-            {notices.map((n) => (
-              <Link
-                key={n.id}
-                href={`/community/notice/${n.id}`}
-                className="py-2 text-[13px] text-text-muted transition-colors hover:text-primary-dark"
-              >
-                {n.title}
-              </Link>
-            ))}
-          </div>
+          {notices.length === 0 ? (
+            <p className="py-2 text-[13px] text-text-faint">아직 공지가 없어요</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {notices.slice(0, 5).map((n) => (
+                <Link
+                  key={n.id}
+                  href={`/community/notice/${n.id}`}
+                  className="py-2 text-[13px] text-text-muted transition-colors hover:text-primary-dark"
+                >
+                  {n.title}
+                </Link>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
