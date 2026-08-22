@@ -839,6 +839,20 @@ test("클라이언트 계정이 삭제돼도 상담사가 채팅방 상세를 �
   assert.equal(res.body.otherPartyName, "(탈퇴한 회원)");
 });
 
+test("상담사가 탈퇴한 뒤에도 클라이언트가 상담을 종료할 수 있다 (500 대신 200)", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/messages`).send({ text: "안녕하세요" });
+
+  await User.findOneAndDelete({ _id: counselor._id });
+
+  const res = await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({ rating: 5 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "ended");
+});
+
 test("serializeRoom은 populate를 빠뜨려 client/counselor가 raw ObjectId인 경우 여전히 throw한다", () => {
   const { serializeRoom } = require("../routes/counseling");
 

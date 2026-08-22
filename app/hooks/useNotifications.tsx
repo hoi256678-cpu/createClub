@@ -130,13 +130,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
 
   const markAllRead = useCallback(() => {
-    rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
-    generationRef.current += 1;
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-    apiFetch("/api/notifications/read-all", { method: "POST" })
-      .catch(() => {})
-      .finally(() => refresh());
-  }, [rooms, isRoomUnread, markRoomRead, refresh]);
+    // 알림 패널에 보이지 않는 항목(꺼둔 알림 종류)은 "모두 읽음"에서도 건드리지 않는다 —
+    // 그렇지 않으면 사용자가 본 적 없는 항목의 안읽음 상태가 조용히 사라진다.
+    if (notificationPrefs.chatMessages) {
+      rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
+    }
+    if (notificationPrefs.systemAlerts) {
+      generationRef.current += 1;
+      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+      apiFetch("/api/notifications/read-all", { method: "POST" })
+        .catch(() => {})
+        .finally(() => refresh());
+    }
+  }, [rooms, isRoomUnread, markRoomRead, notificationPrefs.chatMessages, notificationPrefs.systemAlerts, refresh]);
 
   const deleteNotification = useCallback(
     (id: string) => {

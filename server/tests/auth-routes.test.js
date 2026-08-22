@@ -67,8 +67,28 @@ test("로그인 성공 시 200과 쿠키를 반환한다", async () => {
     .send({ email: "hong@test.com", password: "1234" });
 
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { name: "홍길동", role: "counselor" });
+  assert.deepEqual(res.body, {
+    name: "홍길동",
+    role: "counselor",
+    notificationPrefs: { chatMessages: true, systemAlerts: true },
+  });
   assert.ok(res.headers["set-cookie"][0].includes("somit_token="));
+});
+
+test("로그인 응답에는 저장된 알림 설정이 반영된다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+  await agent.patch("/api/auth/notification-prefs").send({ chatMessages: false });
+  await agent.post("/api/auth/logout");
+
+  const res = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "hong@test.com", password: "1234" });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.notificationPrefs, { chatMessages: false, systemAlerts: true });
 });
 
 test("잘못된 비밀번호로 로그인하면 401과 통일된 메시지를 반환한다", async () => {
@@ -334,4 +354,58 @@ test("회원 탈퇴 시 비밀번호를 안 보내면 400을 반환한다", asyn
 test("로그인하지 않은 상태에서 회원 탈퇴는 401을 반환한다", async () => {
   const res = await request(app).delete("/api/auth/me").send({ password: "1234" });
   assert.equal(res.status, 401);
+});
+
+test("상담사가 탈퇴하면 진행 중이던 활성 상담방이 자동으로 종료 처리된다", async () => {
+  const User = require("../models/User");
+  const ChatRoom = require("../models/ChatRoom");
+
+  const counselorAgent = request.agent(app);
+  await counselorAgent
+    .post("/api/auth/signup")
+    .send({ name: "상담사", email: "counselor-quit@test.com", password: "1234", role: "counselor" });
+  const counselor = await User.findOne({ email: "counselor-quit@test.com" });
+
+  const clientAgent = request.agent(app);
+  await clientAgent
+    .post("/api/auth/signup")
+    .send({ name: "내담자", email: "client-quit@test.com", password: "1234", role: "client" });
+
+  const createRes = await clientAgent
+    .post("/api/counseling/rooms")
+    .send({ counselorId: counselor._id.toString() });
+  assert.equal(createRes.status, 201);
+
+  const delRes = await counselorAgent.delete("/api/auth/me").send({ password: "1234" });
+  assert.equal(delRes.status, 200);
+
+  const room = await ChatRoom.findById(createRes.body.id);
+  assert.equal(room.status, "ended");
+  assert.ok(room.endedAt);
+});
+
+test("탈퇴하면 본인의 심리검사 결과도 함께 삭제된다", async () => {
+  const TestResult = require("../models/TestResult");
+  const User = require("../models/User");
+
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong-testresult@test.com", password: "1234", role: "client" });
+  const me = await User.findOne({ email: "hong-testresult@test.com" });
+
+  await TestResult.create({
+    user: me._id,
+    type: "phq9",
+    title: "우울 선별검사",
+    score: 5,
+    label: "경미",
+    color: "#000000",
+    needsSupport: false,
+  });
+
+  const res = await agent.delete("/api/auth/me").send({ password: "1234" });
+  assert.equal(res.status, 200);
+
+  assert.equal(await TestResult.countDocuments({ user: me._id }), 0);
 });

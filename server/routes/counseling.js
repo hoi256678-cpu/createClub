@@ -324,23 +324,27 @@ router.post("/counseling/rooms/:id/end", requireAuth, async (req, res) => {
 
     if (hadMessages || effectiveRating) {
       const counselor = await User.findById(room.counselor);
-      const p = counselor.counselorProfile;
+      // 상담사가 계정을 삭제한 경우 counselor가 null이 될 수 있다 — 삭제된 계정의
+      // 통계는 갱신할 의미가 없으므로 조용히 건너뛴다 (방은 이미 위에서 종료 처리됨).
+      if (counselor) {
+        const p = counselor.counselorProfile;
 
-      // 실제 대화(메시지 교환)가 있었던 방만 상담사 통계에 반영한다.
-      // 신청 직후 바로 종료하는 것을 반복해 통계를 조작하는 것을 막기 위함이다.
-      if (hadMessages) {
-        p.sessionCount = (p.sessionCount || 0) + 1;
-        p.recentSessions = (p.recentSessions || 0) + 1;
+        // 실제 대화(메시지 교환)가 있었던 방만 상담사 통계에 반영한다.
+        // 신청 직후 바로 종료하는 것을 반복해 통계를 조작하는 것을 막기 위함이다.
+        if (hadMessages) {
+          p.sessionCount = (p.sessionCount || 0) + 1;
+          p.recentSessions = (p.recentSessions || 0) + 1;
+        }
+
+        if (effectiveRating && hadMessages) {
+          const prevCount = p.ratingCount || 0;
+          const prevAvg = p.rating || 0;
+          p.ratingCount = prevCount + 1;
+          p.rating = (prevAvg * prevCount + effectiveRating) / p.ratingCount;
+        }
+
+        await counselor.save();
       }
-
-      if (effectiveRating && hadMessages) {
-        const prevCount = p.ratingCount || 0;
-        const prevAvg = p.rating || 0;
-        p.ratingCount = prevCount + 1;
-        p.rating = (prevAvg * prevCount + effectiveRating) / p.ratingCount;
-      }
-
-      await counselor.save();
     }
 
     res.json({ id: room._id.toString(), status: room.status, rating: room.rating });

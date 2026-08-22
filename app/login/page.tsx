@@ -4,7 +4,7 @@ import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { useAuthStatus } from "@/app/hooks/useAuthStatus";
+import { useAuthStatus, type NotificationPrefs } from "@/app/hooks/useAuthStatus";
 import { safeNextPath } from "@/lib/next-path";
 
 export default function LoginPage() {
@@ -41,6 +41,7 @@ function LoginPageContent() {
         error?: string;
         name?: string;
         role?: "counselor" | "client" | "admin";
+        notificationPrefs?: NotificationPrefs;
       };
 
       if (!res.ok) {
@@ -48,7 +49,7 @@ function LoginPageContent() {
         return;
       }
 
-      setLoggedIn({ name: data.name!, role: data.role! });
+      setLoggedIn({ name: data.name!, role: data.role!, notificationPrefs: data.notificationPrefs });
       // next 파라미터가 명시되지 않은 채로(기본값 "/") 로그인한 admin은 관리자 페이지로 보낸다.
       const target = !searchParams.get("next") && data.role === "admin" ? "/admin" : nextPath;
       router.replace(target);

@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const ChatRoom = require("../models/ChatRoom");
+const TestResult = require("../models/TestResult");
 const { signToken, COOKIE_NAME, COOKIE_OPTIONS } = require("../lib/token");
 const { requireAuth } = require("../middleware/auth");
 
@@ -74,7 +76,7 @@ router.post("/login", async (req, res) => {
 
     const token = signToken({ id: user._id.toString(), role: user.role });
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
-    res.json({ name: user.name, role: user.role });
+    res.json({ name: user.name, role: user.role, notificationPrefs: user.notificationPrefs });
   } catch (err) {
     console.error("로그인 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
@@ -163,7 +165,12 @@ router.delete("/me", requireAuth, async (req, res) => {
       return res.status(401).json({ error: "비밀번호가 올바르지 않습니다" });
     }
 
+    await ChatRoom.updateMany(
+      { $or: [{ client: user._id }, { counselor: user._id }], status: "active" },
+      { status: "ended", endedAt: new Date() },
+    );
     await Notification.deleteMany({ user: user._id });
+    await TestResult.deleteMany({ user: user._id });
     await user.deleteOne();
 
     const { maxAge, ...clearCookieOptions } = COOKIE_OPTIONS;
