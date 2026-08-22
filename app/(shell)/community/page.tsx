@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
 import AuthLink from "@/app/components/AuthLink";
 import { apiFetch } from "@/lib/api";
+import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatNoticeDate, formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
@@ -33,6 +34,16 @@ function CommunityPageContent() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { state: auth } = useAuthStatus();
+  const isAdmin = auth.phase === "in" && auth.role === "admin";
+  const [creatingNotice, setCreatingNotice] = useState(false);
+  const [newNoticeTitle, setNewNoticeTitle] = useState("");
+  const [newNoticeBody, setNewNoticeBody] = useState("");
+  const [noticeFormError, setNoticeFormError] = useState<string | null>(null);
+  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+  const [editNoticeTitle, setEditNoticeTitle] = useState("");
+  const [editNoticeBody, setEditNoticeBody] = useState("");
+  const [confirmDeleteNoticeId, setConfirmDeleteNoticeId] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch("/api/community/posts")
@@ -42,12 +53,68 @@ function CommunityPageContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
+  function loadNotices() {
     apiFetch("/api/community/notices")
       .then((res) => (res.ok ? res.json() : []))
       .then((data: NoticeItem[]) => setNotices(data))
       .catch(() => setNotices([]));
-  }, []);
+  }
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 공지 목록 조회
+  useEffect(loadNotices, []);
+
+  async function submitCreateNotice(e: FormEvent) {
+    e.preventDefault();
+    setNoticeFormError(null);
+    const res = await apiFetch("/api/admin/notices", {
+      method: "POST",
+      body: JSON.stringify({ title: newNoticeTitle, body: newNoticeBody }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setNoticeFormError(data.error ?? "작성에 실패했어요");
+      return;
+    }
+    setNewNoticeTitle("");
+    setNewNoticeBody("");
+    setCreatingNotice(false);
+    loadNotices();
+  }
+
+  function startEditNotice(n: NoticeItem) {
+    setEditingNoticeId(n.id);
+    setEditNoticeTitle(n.title);
+    setEditNoticeBody(n.body);
+    setNoticeFormError(null);
+  }
+
+  async function submitEditNotice(e: FormEvent, id: string) {
+    e.preventDefault();
+    setNoticeFormError(null);
+    const res = await apiFetch(`/api/admin/notices/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: editNoticeTitle, body: editNoticeBody }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setNoticeFormError(data.error ?? "수정에 실패했어요");
+      return;
+    }
+    setEditingNoticeId(null);
+    loadNotices();
+  }
+
+  async function handleDeleteNotice(id: string) {
+    if (confirmDeleteNoticeId !== id) {
+      setConfirmDeleteNoticeId(id);
+      return;
+    }
+    const res = await apiFetch(`/api/admin/notices/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+    }
+    setConfirmDeleteNoticeId(null);
+  }
 
   const filtered = useMemo(() => {
     let list = tab === "best" ? pickPopularPosts(posts) : [...posts];
@@ -118,21 +185,126 @@ function CommunityPageContent() {
         />
 
         {tab === "notice" ? (
-          notices.length === 0 ? (
-            <div className="py-16 text-center text-text-faint">공지가 없어요</div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {notices.map((n) => (
-                <Link key={n.id} href={`/community/notice/${n.id}`}>
-                  <Card className="cursor-pointer transition-shadow hover:shadow-card">
-                    <div className="text-sm font-bold text-primary-dark">공지</div>
-                    <div className="mt-1 font-bold text-text">{n.title}</div>
-                    <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
+          <div className="flex flex-col gap-2">
+            {isAdmin && (
+              <div className="mb-2">
+                {!creatingNotice ? (
+                  <button
+                    onClick={() => {
+                      setCreatingNotice(true);
+                      setNoticeFormError(null);
+                    }}
+                    className="rounded-lg bg-primary-dark px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    새 공지 작성
+                  </button>
+                ) : (
+                  <form
+                    onSubmit={submitCreateNotice}
+                    className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5"
+                  >
+                    <input
+                      value={newNoticeTitle}
+                      onChange={(e) => setNewNoticeTitle(e.target.value)}
+                      placeholder="제목"
+                      maxLength={100}
+                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                    />
+                    <textarea
+                      value={newNoticeBody}
+                      onChange={(e) => setNewNoticeBody(e.target.value)}
+                      placeholder="내용"
+                      rows={4}
+                      maxLength={2000}
+                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                    />
+                    {noticeFormError && <p className="text-xs font-semibold text-danger">{noticeFormError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCreatingNotice(false)}
+                        className="flex-1 rounded-lg border border-border py-2 text-xs font-bold text-text-muted"
+                      >
+                        취소
+                      </button>
+                      <button type="submit" className="flex-1 rounded-lg bg-primary-dark py-2 text-xs font-bold text-white">
+                        작성하기
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {notices.length === 0 ? (
+              <div className="py-16 text-center text-text-faint">공지가 없어요</div>
+            ) : (
+              notices.map((n) =>
+                isAdmin && editingNoticeId === n.id ? (
+                  <form
+                    key={n.id}
+                    onSubmit={(e) => submitEditNotice(e, n.id)}
+                    className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5"
+                  >
+                    <input
+                      value={editNoticeTitle}
+                      onChange={(e) => setEditNoticeTitle(e.target.value)}
+                      maxLength={100}
+                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                    />
+                    <textarea
+                      value={editNoticeBody}
+                      onChange={(e) => setEditNoticeBody(e.target.value)}
+                      rows={4}
+                      maxLength={2000}
+                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                    />
+                    {noticeFormError && <p className="text-xs font-semibold text-danger">{noticeFormError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingNoticeId(null)}
+                        className="flex-1 rounded-lg border border-border py-2 text-xs font-bold text-text-muted"
+                      >
+                        취소
+                      </button>
+                      <button type="submit" className="flex-1 rounded-lg bg-primary-dark py-2 text-xs font-bold text-white">
+                        저장
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <Card key={n.id} className="transition-shadow hover:shadow-card">
+                    <Link href={`/community/notice/${n.id}`} className="block cursor-pointer">
+                      <div className="text-sm font-bold text-primary-dark">공지</div>
+                      <div className="mt-1 font-bold text-text">{n.title}</div>
+                      <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
+                    </Link>
+                    {isAdmin && (
+                      <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                        <button
+                          onClick={() => startEditNotice(n)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-text-muted"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNotice(n.id)}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${
+                            confirmDeleteNoticeId === n.id
+                              ? "border-danger bg-[#fff0f0] text-danger"
+                              : "border-danger text-danger hover:bg-[#fff0f0]"
+                          }`}
+                        >
+                          {confirmDeleteNoticeId === n.id ? "정말 삭제할까요?" : "삭제"}
+                        </button>
+                      </div>
+                    )}
                   </Card>
-                </Link>
-              ))}
-            </div>
-          )
+                )
+              )
+            )}
+          </div>
         ) : loading ? (
           <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>
         ) : filtered.length === 0 ? (
