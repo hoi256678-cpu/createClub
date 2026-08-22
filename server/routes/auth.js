@@ -92,7 +92,7 @@ router.get("/me", requireAuth, async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: "로그인이 필요합니다" });
     }
-    res.json({ name: user.name, role: user.role });
+    res.json({ name: user.name, role: user.role, notificationPrefs: user.notificationPrefs });
   } catch (err) {
     console.error("/me 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });

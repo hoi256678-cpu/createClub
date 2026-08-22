@@ -12,6 +12,10 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   role: { type: String, required: true, enum: ["counselor", "client", "admin"] },
   suspended: { type: Boolean, default: false },
+  notificationPrefs: {
+    chatMessages: { type: Boolean, default: true },
+    systemAlerts: { type: Boolean, default: true },
+  },
   counselorProfile: {
     major: String,
     year: String,

@@ -93,7 +93,7 @@ test("존재하지 않는 이메일로 로그인해도 동일한 401 메시지�
   assert.equal(res.body.error, "이메일 또는 비밀번호가 올바르지 않습니다");
 });
 
-test("로그인한 상태에서 /me는 사용자 정보를 반환한다", async () => {
+test("로그인한 상태에서 /me는 사용자 정보와 기본 알림 설정을 반환한다", async () => {
   const agent = request.agent(app);
   await agent
     .post("/api/auth/signup")
@@ -102,7 +102,11 @@ test("로그인한 상태에서 /me는 사용자 정보를 반환한다", async 
   const res = await agent.get("/api/auth/me");
 
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { name: "홍길동", role: "counselor" });
+  assert.deepEqual(res.body, {
+    name: "홍길동",
+    role: "counselor",
+    notificationPrefs: { chatMessages: true, systemAlerts: true },
+  });
 });
 
 test("로그인하지 않은 상태에서 /me는 401을 반환한다", async () => {
