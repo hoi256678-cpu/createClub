@@ -120,6 +120,14 @@ export default function CommunityPostPage() {
           <div className="mb-5 border-b border-border pb-4 text-[13px] text-text-muted">
             {post.authorName} · {post.authorRole} · {formatRelativeTime(post.createdAt)} · 조회 {post.views}
           </div>
+          {post.image && (
+            // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI
+            <img
+              src={post.image}
+              alt=""
+              className="mb-4 max-h-[480px] w-full rounded-xl border border-border object-contain"
+            />
+          )}
           <div className="whitespace-pre-wrap text-[15px] leading-[1.85] text-text-2">{post.body}</div>
 
           <div className="my-6 flex justify-center gap-3 border-y border-border py-6">

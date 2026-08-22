@@ -328,7 +328,17 @@ function CommunityPageContent() {
                     )}
                   </div>
                   <div className="mb-1.5 font-bold text-text">{p.title}</div>
-                  <div className="mb-3 line-clamp-2 text-[13px] text-text-muted">{p.body}</div>
+                  <div className="mb-3 flex gap-3">
+                    <p className="line-clamp-2 flex-1 text-[13px] text-text-muted">{p.body}</p>
+                    {p.image && (
+                      // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI
+                      <img
+                        src={p.image}
+                        alt=""
+                        className="h-14 w-14 flex-shrink-0 rounded-lg border border-border object-cover"
+                      />
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-text-faint">
                     <span>
                       {p.authorName} · {formatRelativeTime(p.createdAt)}
