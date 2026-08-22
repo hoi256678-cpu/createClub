@@ -77,7 +77,9 @@ export default function MoodPage() {
     return { y: d.getFullYear(), m: d.getMonth() };
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const shareEditedRef = useRef(false);
+  const editedDatesRef = useRef<Set<string>>(new Set());
 
   function selectDate(date: string) {
     setSelectedDate((prev) => (prev === date ? null : date));
@@ -104,7 +106,9 @@ export default function MoodPage() {
           writeJSON(SHARE_KEY, data.shareEnabled);
         }
 
-        const missing = loaded.filter((e) => !data.entries.some((s) => s.date === e.date));
+        const missing = loaded.filter(
+          (e) => !data.entries.some((s) => s.date === e.date) && !editedDatesRef.current.has(e.date)
+        );
         await Promise.all(
           missing.map((e) =>
             apiFetch(`/api/mood/entries/${e.date}`, {
@@ -115,8 +119,11 @@ export default function MoodPage() {
         );
 
         setEntries((prev) => {
-          const localOnly = prev.filter((e) => !data.entries.some((s) => s.date === e.date));
-          const merged = [...data.entries, ...localOnly].sort((a, b) => (a.date < b.date ? 1 : -1));
+          const localOnly = prev.filter(
+            (e) => editedDatesRef.current.has(e.date) || !data.entries.some((s) => s.date === e.date)
+          );
+          const serverOnly = data.entries.filter((s) => !localOnly.some((e) => e.date === s.date));
+          const merged = [...serverOnly, ...localOnly].sort((a, b) => (a.date < b.date ? 1 : -1));
           writeJSON(KEY, merged);
           return merged;
         });
@@ -131,6 +138,7 @@ export default function MoodPage() {
   function save() {
     if (score === null) return;
     const entry: MoodEntry = { date: todayKey(), score, note: note.trim(), checks };
+    editedDatesRef.current.add(entry.date);
     const next = [entry, ...entries.filter((e) => e.date !== entry.date)].slice(0, 90);
     setEntries(next);
     writeJSON(KEY, next);
@@ -148,10 +156,19 @@ export default function MoodPage() {
     shareEditedRef.current = true;
     setShare(value);
     writeJSON(SHARE_KEY, value);
+    setShareError(null);
     apiFetch("/api/mood/share", {
       method: "PATCH",
       body: JSON.stringify({ enabled: value }),
-    }).catch(() => {});
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+      })
+      .catch(() => {
+        setShare(!value);
+        writeJSON(SHARE_KEY, !value);
+        setShareError("설정을 저장하지 못했어요. 다시 시도해주세요");
+      });
   }
 
   const monthGrid = useMemo(() => buildMonthGrid(viewMonth, entries), [viewMonth, entries]);
@@ -344,6 +361,7 @@ export default function MoodPage() {
               </span>
             </span>
           </label>
+          {shareError && <p className="mt-1 text-xs font-semibold text-danger">{shareError}</p>}
         </Card>
       )}
     </div>

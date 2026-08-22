@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const ChatRoom = require("../models/ChatRoom");
 const TestResult = require("../models/TestResult");
+const MoodEntry = require("../models/MoodEntry");
 const { signToken, COOKIE_NAME, COOKIE_OPTIONS } = require("../lib/token");
 const { requireAuth } = require("../middleware/auth");
 
@@ -171,6 +172,7 @@ router.delete("/me", requireAuth, async (req, res) => {
     );
     await Notification.deleteMany({ user: user._id });
     await TestResult.deleteMany({ user: user._id });
+    await MoodEntry.deleteMany({ user: user._id });
     await user.deleteOne();
 
     const { maxAge, ...clearCookieOptions } = COOKIE_OPTIONS;

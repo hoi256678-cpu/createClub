@@ -15,6 +15,7 @@ let Report;
 let ChatRoom;
 let Notification;
 let TestResult;
+let MoodEntry;
 let signToken;
 let COOKIE_NAME;
 
@@ -29,6 +30,7 @@ before(async () => {
   ChatRoom = require("../models/ChatRoom");
   Notification = require("../models/Notification");
   TestResult = require("../models/TestResult");
+  MoodEntry = require("../models/MoodEntry");
   ({ signToken, COOKIE_NAME } = require("../lib/token"));
 });
 
@@ -429,7 +431,7 @@ test("신고자 계정이 삭제돼도 admin 신고 목록 조회는 500 대신 
   assert.equal(res.body[0].reporterName, "(탈퇴한 회원)");
 });
 
-test("admin이 사용자를 삭제하면 계정/알림/심리검사 결과가 삭제되고 활성 상담방은 종료된다", async () => {
+test("admin이 사용자를 삭제하면 계정/알림/심리검사 결과/기분 기록이 삭제되고 활성 상담방은 종료된다", async () => {
   const admin = await createAdmin();
   const target = await User.create({
     name: "삭제될유저",
@@ -455,6 +457,13 @@ test("admin이 사용자를 삭제하면 계정/알림/심리검사 결과가 �
     color: "#000000",
     needsSupport: false,
   });
+  await MoodEntry.create({
+    user: target._id,
+    date: "2026-08-22",
+    score: 3,
+    note: "",
+    checks: [],
+  });
 
   const res = await request(app)
     .delete(`/api/admin/users/${target._id}`)
@@ -464,6 +473,7 @@ test("admin이 사용자를 삭제하면 계정/알림/심리검사 결과가 �
   assert.equal(await User.findById(target._id), null);
   assert.equal(await Notification.countDocuments({ user: target._id }), 0);
   assert.equal(await TestResult.countDocuments({ user: target._id }), 0);
+  assert.equal(await MoodEntry.countDocuments({ user: target._id }), 0);
 
   const updatedRoom = await ChatRoom.findById(room._id);
   assert.equal(updatedRoom.status, "ended");

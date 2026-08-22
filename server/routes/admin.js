@@ -5,6 +5,7 @@ const Report = require("../models/Report");
 const Notification = require("../models/Notification");
 const ChatRoom = require("../models/ChatRoom");
 const TestResult = require("../models/TestResult");
+const MoodEntry = require("../models/MoodEntry");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
@@ -71,6 +72,7 @@ router.delete("/users/:id", requireAuth, requireAdmin, async (req, res) => {
     );
     await Notification.deleteMany({ user: user._id });
     await TestResult.deleteMany({ user: user._id });
+    await MoodEntry.deleteMany({ user: user._id });
     await user.deleteOne();
 
     res.json({});

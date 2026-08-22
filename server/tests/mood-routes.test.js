@@ -112,6 +112,30 @@ test("score가 1~5 범위를 벗어나면 400을 반환한다", async () => {
   assert.equal(res.status, 400);
 });
 
+test("실존하지 않는 날짜(2026-02-30)로 PUT하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const res = await agent.put("/api/mood/entries/2026-02-30").send({ score: 3, note: "", checks: [] });
+  assert.equal(res.status, 400);
+});
+
+test("note가 200자를 넘으면 200자로 잘려서 저장된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const longNote = "가".repeat(250);
+  const res = await agent
+    .put("/api/mood/entries/2026-08-22")
+    .send({ score: 3, note: longNote, checks: [] });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.note.length, 200);
+  assert.equal(res.body.note, "가".repeat(200));
+
+  const getRes = await agent.get("/api/mood/entries");
+  assert.equal(getRes.body.entries[0].note.length, 200);
+});
+
 test("다른 사용자의 기록은 보이지 않는다", async () => {
   const agentA = request.agent(app);
   await signup(agentA, { email: "a@test.com" });

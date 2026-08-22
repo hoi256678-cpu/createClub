@@ -31,6 +31,10 @@ router.put("/entries/:date", requireAuth, async (req, res) => {
     if (!DATE_RE.test(date)) {
       return res.status(400).json({ error: "날짜 형식이 올바르지 않습니다" });
     }
+    const parsed = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+      return res.status(400).json({ error: "존재하지 않는 날짜입니다" });
+    }
     const { score, note, checks } = req.body || {};
     if (typeof score !== "number" || score < 1 || score > 5) {
       return res.status(400).json({ error: "점수는 1~5 사이여야 합니다" });
@@ -38,8 +42,12 @@ router.put("/entries/:date", requireAuth, async (req, res) => {
 
     const entry = await MoodEntry.findOneAndUpdate(
       { user: req.user.id, date },
-      { score, note: typeof note === "string" ? note : "", checks: Array.isArray(checks) ? checks : [] },
-      { new: true, upsert: true }
+      {
+        score,
+        note: typeof note === "string" ? note.slice(0, 200) : "",
+        checks: Array.isArray(checks) ? checks.filter((c) => typeof c === "string").slice(0, 20) : [],
+      },
+      { new: true, upsert: true, runValidators: true }
     );
 
     res.json(serializeEntry(entry));

@@ -384,8 +384,9 @@ test("상담사가 탈퇴하면 진행 중이던 활성 상담방이 자동으�
   assert.ok(room.endedAt);
 });
 
-test("탈퇴하면 본인의 심리검사 결과도 함께 삭제된다", async () => {
+test("탈퇴하면 본인의 심리검사 결과와 기분 기록도 함께 삭제된다", async () => {
   const TestResult = require("../models/TestResult");
+  const MoodEntry = require("../models/MoodEntry");
   const User = require("../models/User");
 
   const agent = request.agent(app);
@@ -403,9 +404,17 @@ test("탈퇴하면 본인의 심리검사 결과도 함께 삭제된다", async 
     color: "#000000",
     needsSupport: false,
   });
+  await MoodEntry.create({
+    user: me._id,
+    date: "2026-08-22",
+    score: 4,
+    note: "괜찮은 하루",
+    checks: ["sleep"],
+  });
 
   const res = await agent.delete("/api/auth/me").send({ password: "1234" });
   assert.equal(res.status, 200);
 
   assert.equal(await TestResult.countDocuments({ user: me._id }), 0);
+  assert.equal(await MoodEntry.countDocuments({ user: me._id }), 0);
 });
