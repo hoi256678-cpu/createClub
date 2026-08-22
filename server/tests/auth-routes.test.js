@@ -219,3 +219,62 @@ test("로그인하지 않은 상태에서 알림 설정을 변경하면 401을 �
   const res = await request(app).patch("/api/auth/notification-prefs").send({ chatMessages: false });
   assert.equal(res.status, 401);
 });
+
+test("비밀번호 변경 성공 시 새 비밀번호로 로그인할 수 있다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent
+    .patch("/api/auth/password")
+    .send({ currentPassword: "1234", newPassword: "5678" });
+  assert.equal(res.status, 200);
+
+  const loginRes = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "hong@test.com", password: "5678" });
+  assert.equal(loginRes.status, 200);
+
+  const oldLoginRes = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "hong@test.com", password: "1234" });
+  assert.equal(oldLoginRes.status, 401);
+});
+
+test("현재 비밀번호가 틀리면 401을 반환하고 비밀번호는 바뀌지 않는다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent
+    .patch("/api/auth/password")
+    .send({ currentPassword: "wrong", newPassword: "5678" });
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error, "현재 비밀번호가 올바르지 않습니다");
+
+  const loginRes = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "hong@test.com", password: "1234" });
+  assert.equal(loginRes.status, 200);
+});
+
+test("새 비밀번호가 4자 미만이면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent
+    .patch("/api/auth/password")
+    .send({ currentPassword: "1234", newPassword: "12" });
+  assert.equal(res.status, 400);
+});
+
+test("로그인하지 않은 상태에서 비밀번호 변경은 401을 반환한다", async () => {
+  const res = await request(app)
+    .patch("/api/auth/password")
+    .send({ currentPassword: "1234", newPassword: "5678" });
+  assert.equal(res.status, 401);
+});

@@ -116,4 +116,33 @@ router.patch("/notification-prefs", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/password", requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "현재 비밀번호와 새 비밀번호를 모두 입력해주세요" });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 4) {
+      return res.status(400).json({ error: "새 비밀번호는 4자 이상이어야 합니다" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "로그인이 필요합니다" });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: "현재 비밀번호가 올바르지 않습니다" });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({});
+  } catch (err) {
+    console.error("비밀번호 변경 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 module.exports = router;
