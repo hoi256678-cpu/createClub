@@ -35,6 +35,30 @@ type MoodEntry = {
   checks: string[];
 };
 
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+type ViewMonth = { y: number; m: number };
+
+type MonthCell = { date: string; day: number; entry: MoodEntry | null } | null;
+
+function toDateKey(y: number, m: number, day: number) {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function buildMonthGrid(viewMonth: ViewMonth, entries: MoodEntry[]): MonthCell[] {
+  const { y, m } = viewMonth;
+  const firstWeekday = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const byDate = new Map(entries.map((e) => [e.date, e]));
+  const cells: MonthCell[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = toDateKey(y, m, day);
+    cells.push({ date, day, entry: byDate.get(date) ?? null });
+  }
+  return cells;
+}
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -46,6 +70,10 @@ export default function MoodPage() {
   const [checks, setChecks] = useState<string[]>([]);
   const [share, setShare] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [viewMonth, setViewMonth] = useState<ViewMonth>(() => {
+    const d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
 
   useEffect(() => {
     const loaded = readJSON<MoodEntry[]>(KEY, []);
@@ -79,11 +107,18 @@ export default function MoodPage() {
     writeJSON(SHARE_KEY, value);
   }
 
-  const recent = useMemo(() => entries.slice(0, 14).reverse(), [entries]);
-  const average = useMemo(
-    () => (entries.length ? entries.reduce((s, e) => s + e.score, 0) / entries.length : null),
-    [entries],
-  );
+  const monthGrid = useMemo(() => buildMonthGrid(viewMonth, entries), [viewMonth, entries]);
+  const average = useMemo(() => {
+    const scores = monthGrid.filter((c): c is NonNullable<MonthCell> => c !== null && c.entry !== null).map((c) => c.entry!.score);
+    return scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
+  }, [monthGrid]);
+
+  function shiftMonth(delta: number) {
+    setViewMonth(({ y, m }) => {
+      const total = y * 12 + m + delta;
+      return { y: Math.floor(total / 12), m: ((total % 12) + 12) % 12 };
+    });
+  }
 
   // 하루의 저조함은 정상이지만 사흘 이상 이어지면 혼자 두지 않는 편이 낫다.
   const lowStreak = useMemo(() => {
@@ -168,27 +203,44 @@ export default function MoodPage() {
 
       {showCrisis && <CrisisNotice />}
 
-      {recent.length > 0 && (
+      {entries.length > 0 && (
         <Card>
           <div className="mb-3 flex items-center gap-2">
-            <h2 className="font-extrabold text-text">최근 흐름</h2>
+            <button onClick={() => shiftMonth(-1)} aria-label="이전 달" className="px-1 text-lg text-text-muted">
+              ‹
+            </button>
+            <h2 className="font-extrabold text-text">
+              {viewMonth.y}년 {viewMonth.m + 1}월
+            </h2>
+            <button onClick={() => shiftMonth(1)} aria-label="다음 달" className="px-1 text-lg text-text-muted">
+              ›
+            </button>
             {average !== null && (
               <span className="ml-auto text-xs text-text-muted">평균 {average.toFixed(1)} / 5</span>
             )}
           </div>
-          <div className="flex h-28 gap-1.5">
-            {recent.map((e) => (
-              <div key={e.date} className="flex h-full flex-1 flex-col items-center gap-1">
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full rounded-t-md bg-primary-dark"
-                    style={{ height: `${(e.score / 5) * 100}%`, opacity: 0.35 + e.score * 0.13 }}
-                    title={`${e.date}: ${e.score}점`}
-                  />
-                </div>
-                <span className="text-[9px] text-text-faint">{e.date.slice(8)}</span>
+          <div className="grid grid-cols-7 gap-1">
+            {WEEKDAYS.map((w) => (
+              <div key={w} className="text-center text-[10px] font-bold text-text-faint">
+                {w}
               </div>
             ))}
+            {monthGrid.map((cell, i) => {
+              if (cell === null) return <div key={`empty-${i}`} />;
+              const mood = cell.entry ? MOODS.find((m) => m.score === cell.entry!.score) : null;
+              const isToday = cell.date === todayKey();
+              return (
+                <div
+                  key={cell.date}
+                  className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm ${
+                    isToday ? "border-2 border-primary-dark" : "border border-transparent"
+                  }`}
+                >
+                  <span>{mood ? mood.emoji : "·"}</span>
+                  <span className="text-[9px] text-text-faint">{cell.day}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/*
