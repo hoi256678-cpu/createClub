@@ -278,3 +278,60 @@ test("로그인하지 않은 상태에서 비밀번호 변경은 401을 반환�
     .send({ currentPassword: "1234", newPassword: "5678" });
   assert.equal(res.status, 401);
 });
+
+test("회원 탈퇴 성공 시 계정과 알림이 삭제되고 더 이상 로그인할 수 없다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const Notification = require("../models/Notification");
+  const User = require("../models/User");
+  const me = await User.findOne({ email: "hong@test.com" });
+  await Notification.create({
+    user: me._id,
+    type: "report_reviewed",
+    icon: "📮",
+    title: "신고가 처리됐어요",
+    desc: "확인했어요",
+  });
+
+  const res = await agent.delete("/api/auth/me").send({ password: "1234" });
+  assert.equal(res.status, 200);
+
+  assert.equal(await User.findOne({ email: "hong@test.com" }), null);
+  assert.equal(await Notification.countDocuments({ user: me._id }), 0);
+
+  const loginRes = await request(app)
+    .post("/api/auth/login")
+    .send({ email: "hong@test.com", password: "1234" });
+  assert.equal(loginRes.status, 401);
+});
+
+test("회원 탈퇴 시 비밀번호가 틀리면 401을 반환하고 계정은 남아있다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent.delete("/api/auth/me").send({ password: "wrong" });
+  assert.equal(res.status, 401);
+
+  const User = require("../models/User");
+  assert.ok(await User.findOne({ email: "hong@test.com" }));
+});
+
+test("회원 탈퇴 시 비밀번호를 안 보내면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const res = await agent.delete("/api/auth/me").send({});
+  assert.equal(res.status, 400);
+});
+
+test("로그인하지 않은 상태에서 회원 탈퇴는 401을 반환한다", async () => {
+  const res = await request(app).delete("/api/auth/me").send({ password: "1234" });
+  assert.equal(res.status, 401);
+});

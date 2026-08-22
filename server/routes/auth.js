@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const { signToken, COOKIE_NAME, COOKIE_OPTIONS } = require("../lib/token");
 const { requireAuth } = require("../middleware/auth");
 
@@ -141,6 +142,35 @@ router.patch("/password", requireAuth, async (req, res) => {
     res.json({});
   } catch (err) {
     console.error("비밀번호 변경 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.delete("/me", requireAuth, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ error: "비밀번호를 입력해주세요" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "로그인이 필요합니다" });
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: "비밀번호가 올바르지 않습니다" });
+    }
+
+    await Notification.deleteMany({ user: user._id });
+    await user.deleteOne();
+
+    const { maxAge, ...clearCookieOptions } = COOKIE_OPTIONS;
+    res.clearCookie(COOKIE_NAME, clearCookieOptions);
+    res.json({});
+  } catch (err) {
+    console.error("회원 탈퇴 처리 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });
