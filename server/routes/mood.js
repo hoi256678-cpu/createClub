@@ -49,4 +49,23 @@ router.put("/entries/:date", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/share", requireAuth, async (req, res) => {
+  try {
+    const { enabled } = req.body || {};
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({ error: "enabled는 boolean이어야 합니다" });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "로그인이 필요합니다" });
+    }
+    user.moodShareEnabled = enabled;
+    await user.save();
+    res.json({ enabled: user.moodShareEnabled });
+  } catch (err) {
+    console.error("기분 공유 설정 변경 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 module.exports = router;

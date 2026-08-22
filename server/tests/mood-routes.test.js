@@ -128,3 +128,28 @@ test("로그인하지 않은 상태로 PUT하면 401을 반환한다", async () 
   const res = await request(app).put("/api/mood/entries/2026-08-22").send({ score: 3, note: "", checks: [] });
   assert.equal(res.status, 401);
 });
+
+test("공유 설정을 켜면 /entries 응답에도 반영된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const patchRes = await agent.patch("/api/mood/share").send({ enabled: true });
+  assert.equal(patchRes.status, 200);
+  assert.deepEqual(patchRes.body, { enabled: true });
+
+  const getRes = await agent.get("/api/mood/entries");
+  assert.equal(getRes.body.shareEnabled, true);
+});
+
+test("enabled가 boolean이 아니면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const res = await agent.patch("/api/mood/share").send({ enabled: "yes" });
+  assert.equal(res.status, 400);
+});
+
+test("로그인하지 않은 상태로 공유 설정을 변경하면 401을 반환한다", async () => {
+  const res = await request(app).patch("/api/mood/share").send({ enabled: true });
+  assert.equal(res.status, 401);
+});
