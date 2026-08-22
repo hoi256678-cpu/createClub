@@ -415,3 +415,14 @@ test("존재하지 않는 상담사를 승인하면 404를 반환한다", async 
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
 });
+
+test("신고자 계정이 삭제돼도 admin 신고 목록 조회는 500 대신 폴백 이름으로 성공한다", async () => {
+  const admin = await createAdmin();
+  await createReport({ reporterEmail: "gone@test.com" });
+
+  await User.findOneAndDelete({ email: "gone@test.com" });
+
+  const res = await request(app).get("/api/admin/reports").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body[0].reporterName, "(탈퇴한 회원)");
+});

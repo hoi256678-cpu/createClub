@@ -146,18 +146,18 @@ const DEFAULT_AVATAR_COLOR = "#7a9cc5";
 function serializeRoom(room, viewerId) {
   const client = room.client;
   const counselor = room.counselor;
-  if (!client || typeof client.name !== "string" || !counselor || typeof counselor.name !== "string") {
+  if ((client && typeof client.name !== "string") || (counselor && typeof counselor.name !== "string")) {
     throw new Error("serializeRoom: client/counselor가 populate되지 않았습니다");
   }
-  const isViewerClient = client._id.toString() === viewerId;
+  const isViewerClient = !client ? false : !counselor ? true : client._id.toString() === viewerId;
   const other = isViewerClient ? counselor : client;
-  const otherProfile = other.counselorProfile || {};
+  const otherProfile = (other && other.counselorProfile) || {};
   const last = room.messages.length ? room.messages[room.messages.length - 1] : null;
 
   return {
     id: room._id.toString(),
-    otherPartyId: other._id.toString(),
-    otherPartyName: other.name,
+    otherPartyId: other ? other._id.toString() : null,
+    otherPartyName: other?.name ?? "(탈퇴한 회원)",
     otherPartyMajor: otherProfile.major || "",
     otherPartyAvatarBg: otherProfile.avatarBg || DEFAULT_AVATAR_BG,
     otherPartyAvatarColor: otherProfile.avatarColor || DEFAULT_AVATAR_COLOR,
@@ -232,7 +232,8 @@ router.get("/counseling/rooms/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
     const isParticipant =
-      room.client._id.toString() === req.user.id || room.counselor._id.toString() === req.user.id;
+      (room.client && room.client._id.toString() === req.user.id) ||
+      (room.counselor && room.counselor._id.toString() === req.user.id);
     if (!isParticipant) {
       return res.status(403).json({ error: "접근 권한이 없어요" });
     }

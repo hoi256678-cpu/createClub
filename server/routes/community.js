@@ -5,6 +5,7 @@ const { requireAuth, optionalAuth } = require("../middleware/auth");
 const router = express.Router();
 
 function authorLabel(user) {
+  if (!user) return "회원";
   return user.role === "counselor" ? "상담사" : "고민 청소년";
 }
 
@@ -14,7 +15,7 @@ function serializePost(post, userId) {
     tag: post.tag,
     title: post.title,
     body: post.body,
-    authorName: post.author.name,
+    authorName: post.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(post.author),
     createdAt: post.createdAt,
     views: post.views,
@@ -28,7 +29,7 @@ function serializePost(post, userId) {
 function serializeComment(comment) {
   return {
     id: comment._id.toString(),
-    authorName: comment.author.name,
+    authorName: comment.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(comment.author),
     text: comment.text,
     createdAt: comment.createdAt,

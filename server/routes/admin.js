@@ -118,8 +118,8 @@ router.delete("/posts/:id/comments/:commentId", requireAuth, requireAdmin, async
 function serializeReport(report) {
   return {
     id: report._id.toString(),
-    reporterName: report.reporter.name,
-    counselorName: report.counselor.name,
+    reporterName: report.reporter?.name ?? "(탈퇴한 회원)",
+    counselorName: report.counselor?.name ?? "(탈퇴한 회원)",
     reason: report.reason,
     status: report.status,
     createdAt: report.createdAt,

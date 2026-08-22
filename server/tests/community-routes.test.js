@@ -306,3 +306,35 @@ test("비로그인 상태로 저장한 글 목록/개수를 조회하면 401을 
   const countRes = await request(app).get("/api/community/my-saved-posts/count");
   assert.equal(countRes.status, 401);
 });
+
+test("게시글 작성자 계정이 삭제돼도 목록 조회는 500 대신 폴백 이름으로 성공한다", async () => {
+  const agent = request.agent(app);
+  const author = await signup(agent, { email: "author@test.com" });
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+  assert.equal(createRes.status, 201);
+
+  const User = require("../models/User");
+  await User.findOneAndDelete({ email: author.email });
+
+  const res = await request(app).get("/api/community/posts");
+  assert.equal(res.status, 200);
+  assert.equal(res.body[0].authorName, "(탈퇴한 회원)");
+  assert.equal(res.body[0].authorRole, "회원");
+});
+
+test("댓글 작성자 계정이 삭제돼도 게시글 상세 조회는 500 대신 폴백 이름으로 성공한다", async () => {
+  const postAgent = request.agent(app);
+  await signup(postAgent, { email: "poster@test.com" });
+  const createRes = await postAgent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const commentAgent = request.agent(app);
+  const commenter = await signup(commentAgent, { email: "commenter@test.com" });
+  await commentAgent.post(`/api/community/posts/${createRes.body.id}/comments`).send({ text: "댓글입니다" });
+
+  const User = require("../models/User");
+  await User.findOneAndDelete({ email: commenter.email });
+
+  const res = await request(app).get(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.comments[0].authorName, "(탈퇴한 회원)");
+});

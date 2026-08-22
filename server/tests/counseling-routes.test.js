@@ -807,3 +807,34 @@ test("허용되지 않은 태그로 등록하면 400을 반환한다", async () 
     .send({ name: "새상담사", major: "심리학과", bio: "안녕하세요", specialties: ["없는태그"] });
   assert.equal(res.status, 400);
 });
+
+test("상담 상대방 계정이 삭제돼도 채팅방 목록 조회는 500 대신 폴백 이름으로 성공한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  assert.equal(createRes.status, 201);
+
+  await counselor.deleteOne();
+
+  const res = await agent.get("/api/counseling/rooms");
+  assert.equal(res.status, 200);
+  assert.equal(res.body[0].otherPartyName, "(탈퇴한 회원)");
+  assert.equal(res.body[0].otherPartyId, null);
+});
+
+test("클라이언트 계정이 삭제돼도 상담사가 채팅방 상세를 폴백 이름으로 조회할 수 있다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const User = require("../models/User");
+  await User.findOneAndDelete({ email: "client@test.com" });
+
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${createRes.body.id}`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.otherPartyName, "(탈퇴한 회원)");
+});
