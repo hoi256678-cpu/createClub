@@ -3,6 +3,7 @@ export type CommunityPost = {
   tag: string;
   title: string;
   body: string;
+  image: string | null;
   authorName: string;
   authorRole: string;
   createdAt: string;
