@@ -5,12 +5,13 @@ import Card from "@/app/components/ui/Card";
 import CrisisNotice from "@/app/components/CrisisNotice";
 import { detectCrisis } from "@/lib/crisis";
 import { readJSON, writeJSON } from "@/lib/storage";
+import { apiFetch } from "@/lib/api";
 
 const KEY = "somit:mood";
 const SHARE_KEY = "somit:mood:share";
 
 /** 이모지는 기분을 고르는 입력 수단이라 남긴다. 장식용 이모지는 쓰지 않는다. */
-const MOODS = [
+export const MOODS = [
   { score: 5, emoji: "😄", label: "좋아요" },
   { score: 4, emoji: "🙂", label: "괜찮아요" },
   { score: 3, emoji: "😐", label: "그저 그래요" },
@@ -19,7 +20,7 @@ const MOODS = [
 ];
 
 /** 5문항 간단 체크. 길면 매일 하지 않는다. */
-const CHECKS = [
+export const CHECKS = [
   { id: "sleep", text: "잘 잤어요" },
   { id: "appetite", text: "밥을 잘 먹었어요" },
   { id: "focus", text: "할 일에 집중이 됐어요" },
@@ -27,7 +28,7 @@ const CHECKS = [
   { id: "worth", text: "나 자신이 괜찮게 느껴졌어요" },
 ];
 
-type MoodEntry = {
+export type MoodEntry = {
   date: string;
   score: number;
   note: string;
@@ -92,6 +93,35 @@ export default function MoodPage() {
       setNote(today.note);
       setChecks(today.checks ?? []);
     }
+
+    apiFetch("/api/mood/entries")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(async (data: { shareEnabled: boolean; entries: MoodEntry[] } | null) => {
+        if (!data) return;
+        setShare(data.shareEnabled);
+        writeJSON(SHARE_KEY, data.shareEnabled);
+
+        const missing = loaded.filter((e) => !data.entries.some((s) => s.date === e.date));
+        await Promise.all(
+          missing.map((e) =>
+            apiFetch(`/api/mood/entries/${e.date}`, {
+              method: "PUT",
+              body: JSON.stringify({ score: e.score, note: e.note, checks: e.checks }),
+            }).catch(() => {})
+          )
+        );
+
+        const merged = [...data.entries, ...missing].sort((a, b) => (a.date < b.date ? 1 : -1));
+        setEntries(merged);
+        writeJSON(KEY, merged);
+        const todayMerged = merged.find((e) => e.date === todayKey());
+        if (todayMerged) {
+          setScore(todayMerged.score);
+          setNote(todayMerged.note);
+          setChecks(todayMerged.checks ?? []);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   function toggleCheck(id: string) {
@@ -104,6 +134,10 @@ export default function MoodPage() {
     const next = [entry, ...entries.filter((e) => e.date !== entry.date)].slice(0, 90);
     setEntries(next);
     writeJSON(KEY, next);
+    apiFetch(`/api/mood/entries/${entry.date}`, {
+      method: "PUT",
+      body: JSON.stringify({ score: entry.score, note: entry.note, checks: entry.checks }),
+    }).catch(() => {});
     const today = new Date();
     setViewMonth({ y: today.getFullYear(), m: today.getMonth() });
     setSaved(true);
@@ -113,6 +147,10 @@ export default function MoodPage() {
   function toggleShare(value: boolean) {
     setShare(value);
     writeJSON(SHARE_KEY, value);
+    apiFetch("/api/mood/share", {
+      method: "PATCH",
+      body: JSON.stringify({ enabled: value }),
+    }).catch(() => {});
   }
 
   const monthGrid = useMemo(() => buildMonthGrid(viewMonth, entries), [viewMonth, entries]);
