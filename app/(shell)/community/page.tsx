@@ -60,7 +60,6 @@ function CommunityPageContent() {
       .catch(() => setNotices([]));
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 공지 목록 조회
   useEffect(loadNotices, []);
 
   async function submitCreateNotice(e: FormEvent) {

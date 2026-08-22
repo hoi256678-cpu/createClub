@@ -38,6 +38,8 @@ function resizeImageFile(file: File, maxDim = 1200, quality = 0.8): Promise<stri
           reject(new Error("이미지를 처리할 수 없어요"));
           return;
         }
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL("image/jpeg", quality));
       };

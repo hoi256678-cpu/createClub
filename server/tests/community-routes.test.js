@@ -383,3 +383,27 @@ test("이미지 용량이 너무 크면 400을 반환한다", async () => {
     .send({ tag: "고민", title: "제목", body: "내용", image: tooLargeImage });
   assert.equal(res.status, 400);
 });
+
+test("내가 쓴 글/저장한 글 목록은 이미지를 제외해 대역폭을 아끼지만, 전체 목록에는 이미지가 그대로 나온다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const validImage = "data:image/jpeg;base64," + "a".repeat(100);
+
+  const createRes = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "내용", image: validImage });
+  assert.equal(createRes.status, 201);
+  await agent.post(`/api/community/posts/${createRes.body.id}/save`);
+
+  const myPostsRes = await agent.get("/api/community/my-posts");
+  assert.equal(myPostsRes.status, 200);
+  assert.equal(myPostsRes.body[0].image, null);
+
+  const mySavedPostsRes = await agent.get("/api/community/my-saved-posts");
+  assert.equal(mySavedPostsRes.status, 200);
+  assert.equal(mySavedPostsRes.body[0].image, null);
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.status, 200);
+  assert.equal(listRes.body[0].image, validImage);
+});

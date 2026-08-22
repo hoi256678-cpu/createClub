@@ -95,6 +95,7 @@ function serializeAdminPost(post) {
     tag: post.tag,
     title: post.title,
     body: post.body,
+    image: post.image ?? null,
     authorId: post.author.toString(),
     createdAt: post.createdAt,
     comments: post.comments.map(serializeAdminComment),

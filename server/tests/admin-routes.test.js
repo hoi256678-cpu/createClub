@@ -207,6 +207,17 @@ test("admin은 전체 게시글 목록을 댓글과 함께 조회할 수 있다"
   assert.equal(res.body[0].comments[0].text, "댓글입니다");
 });
 
+test("admin 게시글 목록은 첨부된 이미지도 그대로 반환한다", async () => {
+  const admin = await createAdmin();
+  const validImage = "data:image/jpeg;base64," + "a".repeat(100);
+  await createPost({ rest: { image: validImage } });
+
+  const res = await request(app).get("/api/admin/posts").set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].image, validImage);
+});
+
 test("admin이 게시글을 삭제하면 목록에서 사라진다", async () => {
   const admin = await createAdmin();
   const post = await createPost();

@@ -9,6 +9,7 @@ type AdminPost = {
   tag: string;
   title: string;
   body: string;
+  image: string | null;
   authorId: string;
   createdAt: string;
   comments: AdminComment[];
@@ -73,7 +74,17 @@ export default function AdminCommunityPage() {
                 <span className="text-[11px] text-text-faint">댓글 {post.comments.length}개</span>
               </div>
               <div className="mb-1.5 font-bold text-text">{post.title}</div>
-              <div className="mb-3 line-clamp-2 text-[13px] text-text-muted">{post.body}</div>
+              <div className="mb-3 flex gap-3">
+                <p className="line-clamp-2 flex-1 text-[13px] text-text-muted">{post.body}</p>
+                {post.image && (
+                  // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI
+                  <img
+                    src={post.image}
+                    alt="첨부 이미지"
+                    className="h-14 w-14 flex-shrink-0 rounded-lg border border-border object-cover"
+                  />
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => toggleExpand(post.id)}

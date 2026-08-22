@@ -198,7 +198,11 @@ router.post("/posts/:id/save", requireAuth, async (req, res) => {
 
 router.get("/my-posts", requireAuth, async (req, res) => {
   try {
-    const posts = await Post.find({ author: req.user.id }).sort({ createdAt: -1 }).populate("author", "name role");
+    // 마이페이지 목록은 이미지를 표시하지 않으므로 대역폭 절약을 위해 이미지 필드를 제외한다
+    const posts = await Post.find({ author: req.user.id })
+      .select("-image")
+      .sort({ createdAt: -1 })
+      .populate("author", "name role");
     res.json(posts.map((p) => serializePost(p, req.user.id)));
   } catch (err) {
     console.error("내가 쓴 글 목록 조회 중 오류:", err);
@@ -208,7 +212,11 @@ router.get("/my-posts", requireAuth, async (req, res) => {
 
 router.get("/my-saved-posts", requireAuth, async (req, res) => {
   try {
-    const posts = await Post.find({ savedBy: req.user.id }).sort({ createdAt: -1 }).populate("author", "name role");
+    // 마이페이지 목록은 이미지를 표시하지 않으므로 대역폭 절약을 위해 이미지 필드를 제외한다
+    const posts = await Post.find({ savedBy: req.user.id })
+      .select("-image")
+      .sort({ createdAt: -1 })
+      .populate("author", "name role");
     res.json(posts.map((p) => serializePost(p, req.user.id)));
   } catch (err) {
     console.error("저장한 글 목록 조회 중 오류:", err);
