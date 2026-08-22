@@ -7,10 +7,10 @@ import Card from "@/app/components/ui/Card";
 import Chip from "@/app/components/ui/Chip";
 import AuthLink from "@/app/components/AuthLink";
 import { apiFetch } from "@/lib/api";
-import { NOTICE_POSTS, TOPICS, TOPIC_EMOJI } from "./mock";
-import { formatRelativeTime } from "./time";
+import { TOPICS, TOPIC_EMOJI } from "./mock";
+import { formatNoticeDate, formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
-import type { CommunityPost } from "./types";
+import type { CommunityPost, NoticeItem } from "./types";
 
 type Tab = "best" | "all" | "notice";
 type Sort = "recent" | "likes" | "comments" | "views";
@@ -31,6 +31,7 @@ function CommunityPageContent() {
   const [topic, setTopic] = useState<string | null>(searchParams.get("topic"));
   const [sort, setSort] = useState<Sort>("recent");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +40,13 @@ function CommunityPageContent() {
       .then((data: CommunityPost[]) => setPosts(data))
       .catch(() => setPosts([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    apiFetch("/api/community/notices")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: NoticeItem[]) => setNotices(data))
+      .catch(() => setNotices([]));
   }, []);
 
   const filtered = useMemo(() => {
@@ -111,12 +119,12 @@ function CommunityPageContent() {
 
         {tab === "notice" ? (
           <div className="flex flex-col gap-2">
-            {NOTICE_POSTS.map((n) => (
+            {notices.map((n) => (
               <Link key={n.id} href={`/community/notice/${n.id}`}>
                 <Card className="cursor-pointer transition-shadow hover:shadow-card">
                   <div className="text-sm font-bold text-primary-dark">공지</div>
                   <div className="mt-1 font-bold text-text">{n.title}</div>
-                  <div className="mt-1 text-xs text-text-faint">{n.time}</div>
+                  <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
                 </Card>
               </Link>
             ))}
@@ -188,7 +196,7 @@ function CommunityPageContent() {
         <Card>
           <div className="mb-3 font-extrabold text-text">📋 공지사항</div>
           <div className="flex flex-col divide-y divide-border">
-            {NOTICE_POSTS.map((n) => (
+            {notices.map((n) => (
               <Link
                 key={n.id}
                 href={`/community/notice/${n.id}`}

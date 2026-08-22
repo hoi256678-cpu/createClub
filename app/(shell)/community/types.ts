@@ -24,3 +24,5 @@ export type CommunityComment = {
 export type CommunityPostDetail = CommunityPost & {
   comments: CommunityComment[];
 };
+
+export type NoticeItem = { id: string; title: string; body: string; createdAt: string };

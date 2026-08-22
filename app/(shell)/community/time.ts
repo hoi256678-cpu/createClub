@@ -8,3 +8,7 @@ export function formatRelativeTime(iso: string): string {
   const diffDay = Math.floor(diffHour / 24);
   return `${diffDay}일 전`;
 }
+
+export function formatNoticeDate(iso: string): string {
+  return iso.slice(0, 10).replace(/-/g, ".");
+}

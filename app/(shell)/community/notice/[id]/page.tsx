@@ -1,13 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Card from "@/app/components/ui/Card";
-import { NOTICE_POSTS } from "../../mock";
+import { apiFetch } from "@/lib/api";
+import { formatNoticeDate } from "../../time";
+import type { NoticeItem } from "../../types";
 
 export default function NoticeDetailPage() {
   const params = useParams<{ id: string }>();
-  const notice = NOTICE_POSTS.find((n) => n.id === params.id);
+  const [notice, setNotice] = useState<NoticeItem | null | undefined>(undefined);
+
+  useEffect(() => {
+    apiFetch(`/api/community/notices/${params.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: NoticeItem | null) => setNotice(data))
+      .catch(() => setNotice(null));
+  }, [params.id]);
+
+  if (notice === undefined) {
+    return <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>;
+  }
 
   if (!notice) {
     return (
@@ -30,7 +44,7 @@ export default function NoticeDetailPage() {
       <Card>
         <div className="text-sm font-bold text-primary-dark">공지</div>
         <h1 className="mt-1 text-lg font-extrabold text-text">{notice.title}</h1>
-        <div className="mt-1 text-xs text-text-faint">{notice.time}</div>
+        <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(notice.createdAt)}</div>
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-text-2">{notice.body}</p>
       </Card>
     </div>
