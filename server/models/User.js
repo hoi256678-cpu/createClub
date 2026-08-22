@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
     chatMessages: { type: Boolean, default: true },
     systemAlerts: { type: Boolean, default: true },
   },
+  moodShareEnabled: { type: Boolean, default: false },
   counselorProfile: {
     major: String,
     year: String,
