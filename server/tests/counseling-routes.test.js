@@ -838,3 +838,21 @@ test("클라이언트 계정이 삭제돼도 상담사가 채팅방 상세를 �
   assert.equal(res.status, 200);
   assert.equal(res.body.otherPartyName, "(탈퇴한 회원)");
 });
+
+test("serializeRoom은 populate를 빠뜨려 client/counselor가 raw ObjectId인 경우 여전히 throw한다", () => {
+  const { serializeRoom } = require("../routes/counseling");
+
+  const viewerId = new mongoose.Types.ObjectId().toString();
+  const fakeRoom = {
+    _id: new mongoose.Types.ObjectId(),
+    // populate를 호출하지 않았을 때 client는 이렇게 이름 없는 raw ObjectId로 남는다 —
+    // "탈퇴한 회원"이라 정상적으로 null이 되는 경우와는 달리, 이는 프로그래밍 실수다.
+    client: new mongoose.Types.ObjectId(),
+    counselor: { _id: new mongoose.Types.ObjectId(), name: "이지원", counselorProfile: {} },
+    messages: [],
+    status: "active",
+    createdAt: new Date(),
+  };
+
+  assert.throws(() => serializeRoom(fakeRoom, viewerId), /populate/);
+});

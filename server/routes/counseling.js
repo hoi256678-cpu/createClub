@@ -393,4 +393,4 @@ router.post("/counseling/rooms/:id/report", requireAuth, async (req, res) => {
   }
 });
 
-module.exports = { router, serializeCounselor };
+module.exports = { router, serializeCounselor, serializeRoom };
