@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Card from "@/app/components/ui/Card";
 import CrisisNotice from "@/app/components/CrisisNotice";
 import { detectCrisis } from "@/lib/crisis";
@@ -77,6 +77,7 @@ export default function MoodPage() {
     return { y: d.getFullYear(), m: d.getMonth() };
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const shareEditedRef = useRef(false);
 
   function selectDate(date: string) {
     setSelectedDate((prev) => (prev === date ? null : date));
@@ -98,8 +99,10 @@ export default function MoodPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then(async (data: { shareEnabled: boolean; entries: MoodEntry[] } | null) => {
         if (!data) return;
-        setShare(data.shareEnabled);
-        writeJSON(SHARE_KEY, data.shareEnabled);
+        if (!shareEditedRef.current) {
+          setShare(data.shareEnabled);
+          writeJSON(SHARE_KEY, data.shareEnabled);
+        }
 
         const missing = loaded.filter((e) => !data.entries.some((s) => s.date === e.date));
         await Promise.all(
@@ -111,15 +114,12 @@ export default function MoodPage() {
           )
         );
 
-        const merged = [...data.entries, ...missing].sort((a, b) => (a.date < b.date ? 1 : -1));
-        setEntries(merged);
-        writeJSON(KEY, merged);
-        const todayMerged = merged.find((e) => e.date === todayKey());
-        if (todayMerged) {
-          setScore(todayMerged.score);
-          setNote(todayMerged.note);
-          setChecks(todayMerged.checks ?? []);
-        }
+        setEntries((prev) => {
+          const localOnly = prev.filter((e) => !data.entries.some((s) => s.date === e.date));
+          const merged = [...data.entries, ...localOnly].sort((a, b) => (a.date < b.date ? 1 : -1));
+          writeJSON(KEY, merged);
+          return merged;
+        });
       })
       .catch(() => {});
   }, []);
@@ -145,6 +145,7 @@ export default function MoodPage() {
   }
 
   function toggleShare(value: boolean) {
+    shareEditedRef.current = true;
     setShare(value);
     writeJSON(SHARE_KEY, value);
     apiFetch("/api/mood/share", {
