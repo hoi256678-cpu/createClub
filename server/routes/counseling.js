@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const ChatRoom = require("../models/ChatRoom");
 const Report = require("../models/Report");
+const MoodEntry = require("../models/MoodEntry");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -243,6 +244,36 @@ router.get("/counseling/rooms/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
     }
     console.error("채팅방 상세 조회 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.get("/counseling/rooms/:id/mood", requireAuth, async (req, res) => {
+  try {
+    const room = await ChatRoom.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
+    }
+    if (room.counselor.toString() !== req.user.id) {
+      return res.status(403).json({ error: "접근 권한이 없어요" });
+    }
+    if (room.status !== "active") {
+      return res.status(403).json({ error: "활성 상담방에서만 볼 수 있어요" });
+    }
+
+    const client = await User.findById(room.client);
+    if (!client || !client.moodShareEnabled) {
+      return res.status(403).json({ error: "클라이언트가 기분 기록 공유에 동의하지 않았어요", shareDisabled: true });
+    }
+
+    const entries = await MoodEntry.find({ user: room.client }).sort({ date: -1 }).limit(14);
+    const ordered = entries.reverse().map((e) => ({ date: e.date, score: e.score, note: e.note, checks: e.checks }));
+    res.json({ entries: ordered });
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "채팅방을 찾을 수 없어요" });
+    }
+    console.error("상담사용 기분 기록 조회 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });

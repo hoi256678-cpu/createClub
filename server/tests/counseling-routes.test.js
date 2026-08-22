@@ -870,3 +870,75 @@ test("serializeRoom은 populate를 빠뜨려 client/counselor가 raw ObjectId인
 
   assert.throws(() => serializeRoom(fakeRoom, viewerId), /populate/);
 });
+
+const MoodEntry = require("../models/MoodEntry");
+
+test("상담사는 활성 상담방에서 공유 동의한 클라이언트의 최근 기분 기록을 볼 수 있다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  await agent.patch("/api/mood/share").send({ enabled: true });
+  const client = await User.findOne({ email: "client@test.com" });
+  await MoodEntry.create({ user: client._id, date: "2026-08-20", score: 3, note: "", checks: [] });
+  await MoodEntry.create({ user: client._id, date: "2026-08-21", score: 5, note: "좋았다", checks: ["sleep"] });
+
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${createRes.body.id}/mood`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.body.entries.map((e) => e.date),
+    ["2026-08-20", "2026-08-21"]
+  );
+  assert.equal(res.body.entries[1].note, "좋았다");
+});
+
+test("클라이언트가 공유하지 않았으면 403과 shareDisabled를 반환한다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${createRes.body.id}/mood`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 403);
+  assert.equal(res.body.shareDisabled, true);
+});
+
+test("종료된 상담방에서는 상담사가 기분 기록을 볼 수 없다", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.patch("/api/mood/share").send({ enabled: true });
+  await agent.post(`/api/counseling/rooms/${createRes.body.id}/end`).send({});
+
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${createRes.body.id}/mood`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 403);
+  assert.notEqual(res.body.shareDisabled, true);
+});
+
+test("클라이언트 본인은 이 엔드포인트로 조회할 수 없다(상담사 전용)", async () => {
+  const counselor = await createCounselor();
+  const agent = request.agent(app);
+  await signupClient(agent);
+  const createRes = await agent.post("/api/counseling/rooms").send({ counselorId: counselor._id.toString() });
+  await agent.patch("/api/mood/share").send({ enabled: true });
+
+  const res = await agent.get(`/api/counseling/rooms/${createRes.body.id}/mood`);
+  assert.equal(res.status, 403);
+});
+
+test("존재하지 않는 방을 조회하면 404를 반환한다", async () => {
+  const counselor = await createCounselor();
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await request(app)
+    .get(`/api/counseling/rooms/${missingId}/mood`)
+    .set("Cookie", counselorCookie(counselor));
+  assert.equal(res.status, 404);
+});
