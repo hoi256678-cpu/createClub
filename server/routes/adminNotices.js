@@ -45,7 +45,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
     res.json(serializeNotice(notice));
   } catch (err) {
     if (err.name === "CastError") {
-      return res.status(404).json({ error: "공지를 �을 수 없어요" });
+      return res.status(404).json({ error: "공지를 찾을 수 없어요" });
     }
     console.error("공지사항 수정 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });

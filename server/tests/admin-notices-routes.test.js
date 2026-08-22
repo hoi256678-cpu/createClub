@@ -131,3 +131,24 @@ test("존재하지 않는 공지를 삭제하면 404를 반환한다", async () 
     .set("Cookie", adminCookie(admin));
   assert.equal(res.status, 404);
 });
+
+test("잘못된 형식의 ID로 공지를 수정하면 404를 반환한다 (CastError)", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .patch("/api/admin/notices/not-a-valid-id")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "수정" });
+  assert.equal(res.status, 404);
+  assert.ok(res.body.error);
+  assert.equal(res.body.error, "공지를 찾을 수 없어요");
+});
+
+test("잘못된 형식의 ID로 공지를 삭제하면 404를 반환한다 (CastError)", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .delete("/api/admin/notices/not-a-valid-id")
+    .set("Cookie", adminCookie(admin));
+  assert.equal(res.status, 404);
+  assert.ok(res.body.error);
+  assert.equal(res.body.error, "공지를 찾을 수 없어요");
+});
