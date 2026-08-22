@@ -338,3 +338,48 @@ test("댓글 작성자 계정이 삭제돼도 게시글 상세 조회는 500 대
   assert.equal(res.status, 200);
   assert.equal(res.body.comments[0].authorName, "(탈퇴한 회원)");
 });
+
+test("이미지와 함께 게시글을 작성하면 응답과 목록에 이미지가 포함된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const validImage = "data:image/jpeg;base64," + "a".repeat(100);
+
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "내용", image: validImage });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.image, validImage);
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.body[0].image, validImage);
+});
+
+test("이미지 없이 게시글을 작성하면 image가 null이다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const res = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.image, null);
+});
+
+test("잘못된 형식의 이미지 값이면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "내용", image: "not-a-data-uri" });
+  assert.equal(res.status, 400);
+});
+
+test("이미지 용량이 너무 크면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const tooLargeImage = "data:image/jpeg;base64," + "a".repeat(2_000_001);
+
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "내용", image: tooLargeImage });
+  assert.equal(res.status, 400);
+});

@@ -14,6 +14,7 @@ const postSchema = new mongoose.Schema(
     tag: { type: String, required: true, maxlength: 20 },
     title: { type: String, required: true, trim: true, maxlength: 100 },
     body: { type: String, required: true, maxlength: 5000 },
+    image: { type: String, default: null },
     views: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

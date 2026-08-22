@@ -4,6 +4,9 @@ const { requireAuth, optionalAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
+const IMAGE_RE = /^data:image\/(jpeg|png|webp);base64,/;
+const MAX_IMAGE_LENGTH = 2_000_000;
+
 function authorLabel(user) {
   if (!user) return "회원";
   return user.role === "counselor" ? "상담사" : "고민 청소년";
@@ -15,6 +18,7 @@ function serializePost(post, userId) {
     tag: post.tag,
     title: post.title,
     body: post.body,
+    image: post.image ?? null,
     authorName: post.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(post.author),
     createdAt: post.createdAt,
@@ -75,15 +79,29 @@ router.get("/posts/:id", optionalAuth, async (req, res) => {
 
 router.post("/posts", requireAuth, async (req, res) => {
   try {
-    const { tag, title, body } = req.body || {};
+    const { tag, title, body, image } = req.body || {};
     if (!tag || !title?.trim() || !body?.trim()) {
       return res.status(400).json({ error: "태그, 제목, 내용을 모두 입력해주세요" });
     }
     if (title.trim().length > 100 || body.trim().length > 5000) {
       return res.status(400).json({ error: "제목은 100자, 내용은 5000자를 넘을 수 없어요" });
     }
+    if (image !== undefined && image !== null) {
+      if (typeof image !== "string" || !IMAGE_RE.test(image)) {
+        return res.status(400).json({ error: "이미지 형식이 올바르지 않아요" });
+      }
+      if (image.length > MAX_IMAGE_LENGTH) {
+        return res.status(400).json({ error: "이미지 용량이 너무 커요" });
+      }
+    }
 
-    const post = await Post.create({ author: req.user.id, tag, title: title.trim(), body: body.trim() });
+    const post = await Post.create({
+      author: req.user.id,
+      tag,
+      title: title.trim(),
+      body: body.trim(),
+      image: image || null,
+    });
     await post.populate("author", "name role");
 
     res.status(201).json(serializePost(post, req.user.id));
