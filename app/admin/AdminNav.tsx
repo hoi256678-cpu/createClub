@@ -9,6 +9,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin", label: "대시보드" },
   { href: "/admin/users", label: "사용자 관리" },
   { href: "/admin/community", label: "커뮤니티 관리" },
+  { href: "/admin/notices", label: "공지사항 관리" },
   { href: "/admin/reports", label: "상담 신고" },
   { href: "/admin/counselors", label: "상담사 인증" },
 ];
