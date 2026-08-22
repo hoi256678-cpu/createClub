@@ -11,6 +11,7 @@ const testRouter = require("./routes/test");
 const adminRouter = require("./routes/admin");
 const notificationsRouter = require("./routes/notifications");
 const moodRouter = require("./routes/mood");
+const noticesRouter = require("./routes/notices");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -37,6 +38,7 @@ app.use("/api/test", testRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/mood", moodRouter);
+app.use("/api/community/notices", noticesRouter);
 
 async function start() {
   if (!MONGODB_URI) {
