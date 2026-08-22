@@ -60,7 +60,8 @@ function buildMonthGrid(viewMonth: ViewMonth, entries: MoodEntry[]): MonthCell[]
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 export default function MoodPage() {
@@ -103,6 +104,8 @@ export default function MoodPage() {
     const next = [entry, ...entries.filter((e) => e.date !== entry.date)].slice(0, 90);
     setEntries(next);
     writeJSON(KEY, next);
+    const today = new Date();
+    setViewMonth({ y: today.getFullYear(), m: today.getMonth() });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -255,9 +258,11 @@ export default function MoodPage() {
           </div>
 
           {selectedDate && (() => {
-            const entry = entries.find((e) => e.date === selectedDate);
-            if (!entry) return null;
-            const mood = MOODS.find((m) => m.score === entry.score)!;
+            const selectedCell = monthGrid.find((c) => c && c.date === selectedDate && c.entry);
+            if (!selectedCell || !selectedCell.entry) return null;
+            const entry = selectedCell.entry;
+            const mood = MOODS.find((m) => m.score === entry.score);
+            if (!mood) return null;
             return (
               <div className="mt-4 rounded-xl border border-border bg-bg px-4 py-3">
                 <div className="flex items-center gap-2">
