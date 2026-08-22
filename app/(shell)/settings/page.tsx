@@ -46,6 +46,11 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function submitPasswordChange(e: FormEvent) {
     e.preventDefault();
     setPasswordError(null);
@@ -70,6 +75,24 @@ export default function SettingsPage() {
       setPasswordSuccess(false);
       setShowPasswordForm(false);
     }, 1500);
+  }
+
+  async function submitDeleteAccount(e: FormEvent) {
+    e.preventDefault();
+    setDeleteError(null);
+    setDeleting(true);
+    const res = await apiFetch("/api/auth/me", {
+      method: "DELETE",
+      body: JSON.stringify({ password: deletePassword }),
+    });
+    setDeleting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error ?? "회원 탈퇴에 실패했어요");
+      return;
+    }
+    setLoggedOut();
+    router.push("/");
   }
 
   async function handleLogout() {
@@ -155,7 +178,34 @@ export default function SettingsPage() {
               </form>
             )}
           </div>
-          {/* Task 9: 회원 탈퇴가 여기 추가됨 */}
+          <div>
+            <button
+              onClick={() => setShowDeleteForm((v) => !v)}
+              className="flex w-full items-center px-5 py-3 text-left text-sm font-semibold text-danger"
+            >
+              회원 탈퇴
+            </button>
+            {showDeleteForm && (
+              <form onSubmit={submitDeleteAccount} className="flex flex-col gap-2 px-5 pb-4">
+                <p className="text-xs text-text-muted">탈퇴하면 되돌릴 수 없어요. 계정 확인을 위해 비밀번호를 입력해주세요.</p>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="비밀번호"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-danger"
+                />
+                {deleteError && <p className="text-xs font-semibold text-danger">{deleteError}</p>}
+                <button
+                  type="submit"
+                  disabled={deleting}
+                  className="mt-1 w-full rounded-lg bg-danger py-2 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  탈퇴하기
+                </button>
+              </form>
+            )}
+          </div>
         </SectionCard>
       )}
     </div>
