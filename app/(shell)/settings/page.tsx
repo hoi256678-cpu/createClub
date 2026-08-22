@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import CrisisNotice from "@/app/components/CrisisNotice";
 import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { apiFetch } from "@/lib/api";
@@ -37,6 +38,39 @@ function SectionCard({ title, children }: { title: string; children: React.React
 export default function SettingsPage() {
   const { state: auth, setLoggedOut, updateNotificationPrefs } = useAuthStatus();
   const router = useRouter();
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  async function submitPasswordChange(e: FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    if (newPassword !== confirmPassword) {
+      setPasswordError("새 비밀번호가 일치하지 않아요");
+      return;
+    }
+    const res = await apiFetch("/api/auth/password", {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPasswordError(data.error ?? "비밀번호 변경에 실패했어요");
+      return;
+    }
+    setPasswordSuccess(true);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setTimeout(() => {
+      setPasswordSuccess(false);
+      setShowPasswordForm(false);
+    }, 1500);
+  }
 
   async function handleLogout() {
     try {
@@ -83,7 +117,45 @@ export default function SettingsPage() {
               로그아웃
             </button>
           </div>
-          {/* Task 8: 비밀번호 변경, Task 9: 회원 탈퇴가 여기 추가됨 */}
+          <div className="border-b border-border">
+            <button
+              onClick={() => setShowPasswordForm((v) => !v)}
+              className="flex w-full items-center px-5 py-3 text-left text-sm font-semibold text-text"
+            >
+              비밀번호 변경
+            </button>
+            {showPasswordForm && (
+              <form onSubmit={submitPasswordChange} className="flex flex-col gap-2 px-5 pb-4">
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="현재 비밀번호"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="새 비밀번호 (4자 이상)"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="새 비밀번호 확인"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
+                />
+                {passwordError && <p className="text-xs font-semibold text-danger">{passwordError}</p>}
+                {passwordSuccess && <p className="text-xs font-semibold text-success">변경됐어요</p>}
+                <button type="submit" className="mt-1 w-full rounded-lg bg-primary-dark py-2 text-sm font-bold text-white">
+                  변경하기
+                </button>
+              </form>
+            )}
+          </div>
+          {/* Task 9: 회원 탈퇴가 여기 추가됨 */}
         </SectionCard>
       )}
     </div>
