@@ -7,6 +7,7 @@ import { GUEST_UPGRADE_REASON } from "@/lib/access";
 import { apiFetch } from "@/lib/api";
 import { useChatRooms } from "@/app/hooks/useChatRooms";
 import { usePolling } from "@/app/hooks/usePolling";
+import { MOODS, CHECKS, type MoodEntry } from "@/app/(shell)/mood/page";
 
 type Message = { id: string; from: "client" | "counselor"; text: string; createdAt: string };
 
@@ -259,6 +260,8 @@ export default function ChatRoomPage() {
           )}
         </div>
 
+        {room.viewerSide === "counselor" && room.status === "active" && <MoodShareSection roomId={room.id} />}
+
         {room.status !== "active" && (
           <div className="border-b border-border bg-bg px-5 py-2 text-center text-xs font-semibold text-text-faint">
             {room.status === "reported" ? "신고 접수 후 종료된 상담이에요" : "종료된 상담이에요"}
@@ -422,6 +425,101 @@ function ReportModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MoodShareSection({ roomId }: { roomId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [entries, setEntries] = useState<MoodEntry[]>([]);
+  const [shareDisabled, setShareDisabled] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  async function load() {
+    if (loaded) return;
+    try {
+      const res = await apiFetch(`/api/counseling/rooms/${roomId}/mood`);
+      if (res.ok) {
+        const data = (await res.json()) as { entries: MoodEntry[] };
+        setEntries(data.entries);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (data.shareDisabled) {
+          setShareDisabled(true);
+        } else {
+          setError("불러오지 못했어요");
+        }
+      }
+    } catch {
+      setError("불러오지 못했어요");
+    } finally {
+      setLoaded(true);
+    }
+  }
+
+  function toggleOpen() {
+    setOpen((v) => !v);
+    if (!open) load();
+  }
+
+  const selected = entries.find((e) => e.date === selectedDate);
+
+  return (
+    <div className="border-b border-border px-5 py-2.5">
+      <button onClick={toggleOpen} className="text-xs font-bold text-text-muted">
+        최근 2주 기분 기록 {open ? "접기 ▴" : "보기 ▾"}
+      </button>
+      {open && (
+        <div className="mt-2">
+          {!loaded ? (
+            <p className="text-xs text-text-faint">불러오는 중...</p>
+          ) : shareDisabled ? (
+            <p className="text-xs text-text-faint">클라이언트가 기분 기록 공유를 켜지 않았어요</p>
+          ) : error ? (
+            <p className="text-xs text-text-faint">{error}</p>
+          ) : entries.length === 0 ? (
+            <p className="text-xs text-text-faint">아직 기록이 없어요</p>
+          ) : (
+            <>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {entries.map((e) => {
+                  const mood = MOODS.find((m) => m.score === e.score);
+                  return (
+                    <button
+                      key={e.date}
+                      onClick={() => setSelectedDate((prev) => (prev === e.date ? null : e.date))}
+                      className={`flex flex-shrink-0 flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 ${
+                        selectedDate === e.date ? "border-primary-dark bg-primary-light" : "border-border"
+                      }`}
+                    >
+                      <span>{mood ? mood.emoji : "·"}</span>
+                      <span className="text-[9px] text-text-faint">{e.date.slice(5)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selected && (
+                <div className="mt-2 rounded-xl border border-border bg-bg px-3 py-2.5">
+                  <div className="flex flex-col gap-1">
+                    {CHECKS.map((c) => {
+                      const on = selected.checks.includes(c.id);
+                      return (
+                        <div key={c.id} className="flex items-center gap-2 text-[11px]">
+                          <span className={on ? "text-primary-dark" : "text-text-faint"}>{on ? "✓" : "○"}</span>
+                          <span className={on ? "text-text" : "text-text-faint"}>{c.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selected.note && <p className="mt-2 text-[12px] leading-relaxed text-text-2">{selected.note}</p>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
