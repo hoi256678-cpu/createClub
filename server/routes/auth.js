@@ -99,4 +99,21 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/notification-prefs", requireAuth, async (req, res) => {
+  try {
+    const { chatMessages, systemAlerts } = req.body || {};
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: "로그인이 필요합니다" });
+    }
+    if (typeof chatMessages === "boolean") user.notificationPrefs.chatMessages = chatMessages;
+    if (typeof systemAlerts === "boolean") user.notificationPrefs.systemAlerts = systemAlerts;
+    await user.save();
+    res.json(user.notificationPrefs);
+  } catch (err) {
+    console.error("알림 설정 변경 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 module.exports = router;

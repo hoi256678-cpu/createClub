@@ -200,3 +200,22 @@ test("정지된 계정으로 로그인하면 403을 반환한다", async () => {
   assert.equal(res.status, 403);
   assert.equal(res.body.error, "정지된 계정이에요. 관리자에게 문의해주세요.");
 });
+
+test("알림 설정을 변경하면 즉시 반영되고 /me에서도 확인된다", async () => {
+  const agent = request.agent(app);
+  await agent
+    .post("/api/auth/signup")
+    .send({ name: "홍길동", email: "hong@test.com", password: "1234", role: "counselor" });
+
+  const patchRes = await agent.patch("/api/auth/notification-prefs").send({ chatMessages: false });
+  assert.equal(patchRes.status, 200);
+  assert.deepEqual(patchRes.body, { chatMessages: false, systemAlerts: true });
+
+  const meRes = await agent.get("/api/auth/me");
+  assert.deepEqual(meRes.body.notificationPrefs, { chatMessages: false, systemAlerts: true });
+});
+
+test("로그인하지 않은 상태에서 알림 설정을 변경하면 401을 반환한다", async () => {
+  const res = await request(app).patch("/api/auth/notification-prefs").send({ chatMessages: false });
+  assert.equal(res.status, 401);
+});
