@@ -847,7 +847,7 @@ EOF
 - Consumes: Task 1의 `POST`/`PATCH /api/community/posts`(`isNotice`/`pinned` 필드), Plan A의 `PATCH /api/community/posts/:id`·`isMine`·`/community/[id]/edit` 페이지.
 - Produces: `<PostForm postId? initial? isAdmin onSuccess>` 컴포넌트 — Task 4는 이 태스크의 산출물을 소비하지 않는다(목록/상세는 별도 태스크).
 
-- [ ] **Step 1: `types.ts`에 `isNotice`/`pinned` 추가, `NoticeItem` 삭제**
+- [ ] **Step 1: `types.ts`에 `isNotice`/`pinned` 추가 (`NoticeItem`은 아직 삭제하지 않는다 — `page.tsx`와 `community/notice/[id]/page.tsx`가 Task 4까지 이 타입을 계속 쓴다)**
 
 `app/(shell)/community/types.ts`의:
 
@@ -919,9 +919,11 @@ export type CommunityComment = {
 export type CommunityPostDetail = CommunityPost & {
   comments: CommunityComment[];
 };
+
+export type NoticeItem = { id: string; title: string; body: string; pinned: boolean; createdAt: string };
 ```
 
-로 교체한다.
+로 교체한다. (`NoticeItem`은 그대로 남긴다 — `page.tsx`와 `community/notice/[id]/page.tsx`를 아직 안 건드렸으므로 지우면 그 두 파일의 빌드가 깨진다. Task 4가 그 두 파일을 고치면서 `NoticeItem`도 함께 지운다.)
 
 - [ ] **Step 2: `NoticeEditor.tsx`를 `PostEditor.tsx`로 이름 변경**
 
@@ -1309,21 +1311,35 @@ function CommunityPostEditContent() {
 
 로 교체한다.
 
-- [ ] **Step 7: 타입체크 + 린트**
+- [ ] **Step 7: `page.tsx`의 옛 이름 참조를 최소한으로 맞추고 타입체크 + 린트**
+
+`app/(shell)/community/page.tsx`는 이 태스크가 손대지 않는 파일이지만(목록/상세 개편은 Task 4), 지금 `import NoticeEditor from "./NoticeEditor";`와 `"notice-body ..."` 클래스 문자열을 쓰고 있어서 이 태스크가 파일/클래스 이름을 바꾸면 그대로는 빌드가 깨진다. `NoticeItem` 타입은 이번 Step 1에서 안 지웠으므로(위 참고) 그 부분은 문제 없다 — 딱 이름 참조 두 곳만 손보면 된다:
+
+`app/(shell)/community/page.tsx`의:
+
+```tsx
+import NoticeEditor from "./NoticeEditor";
+```
+
+를:
+
+```tsx
+import NoticeEditor from "./PostEditor";
+```
+
+로 교체한다(지역 변수명 `NoticeEditor`는 그대로 둔다 — Task 4가 이 파일을 통째로 다시 쓰면서 정리한다). 이 파일 안에서 `"notice-body`로 시작하는 클래스 문자열이 있다면 `"rich-body`로 바꾼다. **이 두 군데 말고는 `page.tsx`의 다른 어떤 것도 건드리지 않는다** — 로직/JSX/상태는 전부 Task 4의 몫이다.
 
 ```bash
 npx tsc --noEmit
 npx eslint "app/(shell)/community/types.ts" "app/(shell)/community/PostEditor.tsx" "app/(shell)/community/PostForm.tsx" "app/(shell)/community/write/page.tsx" "app/(shell)/community/[id]/edit/page.tsx" app/globals.css
 ```
 
-Expected: 에러 없음. `grep -r "NoticeEditor\|notice-body" app` 결과가 없는지도 확인한다(이 태스크가 이름을 다 바꿨는지 검증). `app/(shell)/community/page.tsx`는 아직 옛 `NoticeEditor` import를 갖고 있을 수 있다 — 그건 Task 4에서 정리한다(그 전까지는 빌드가 깨질 수 있음, 다음 스텝에서 확인).
+Expected: 에러 없음(위 최소 패치까지 반영하면 `page.tsx`발 에러도 사라져야 한다). `grep -r "NoticeEditor\"" app`(따옴표로 닫히는 정확한 옛 파일명 import) 결과가 없는지도 확인한다. tsc가 `page.tsx`에서 이 두 가지(임포트 경로, 클래스 문자열) 말고 다른 에러를 낸다면 즉시 멈추고 BLOCKED로 보고한다 — 그건 이 태스크가 예상 못 한 다른 문제다.
 
 - [ ] **Step 8: 커밋**
 
-이 시점에 `app/(shell)/community/page.tsx`가 여전히 `import NoticeEditor from "./NoticeEditor";`를 참조하고 있어 `npx tsc --noEmit`이 이 태스크만으로는 실패할 수 있다(그 파일은 Task 4에서 고친다). 만약 tsc가 `page.tsx`의 미해결 import 때문에 실패한다면, 이 태스크의 커밋은 Task 4와 합쳐서 한 번에 커밋한다 — 즉 이 Step 8과 Task 4의 커밋 스텝을 하나로 묶어 Task 4가 끝난 뒤 전체를 커밋한다. tsc가 통과한다면(예: 아직 `page.tsx`가 옛 이름을 참조하지 않는 상태라면) 그대로 커밋한다:
-
 ```bash
-git add "app/(shell)/community/types.ts" "app/(shell)/community/PostEditor.tsx" "app/(shell)/community/NoticeEditor.tsx" "app/(shell)/community/PostForm.tsx" "app/(shell)/community/write/page.tsx" "app/(shell)/community/[id]/edit/page.tsx" app/globals.css
+git add "app/(shell)/community/types.ts" "app/(shell)/community/PostEditor.tsx" "app/(shell)/community/NoticeEditor.tsx" "app/(shell)/community/PostForm.tsx" "app/(shell)/community/write/page.tsx" "app/(shell)/community/[id]/edit/page.tsx" "app/(shell)/community/page.tsx" app/globals.css
 git commit -m "$(cat <<'EOF'
 feat: 리치 텍스트 에디터를 전체 게시글로 확대 + 공용 PostForm 도입
 
