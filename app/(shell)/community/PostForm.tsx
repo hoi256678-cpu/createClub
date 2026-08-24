@@ -102,7 +102,17 @@ export default function PostForm({ postId, initial, isAdmin, onSuccess }: Props)
       {isAdmin && (
         <div className="mt-3 flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
-            <input type="checkbox" checked={isNotice} onChange={(e) => setIsNotice(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={isNotice}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsNotice(checked);
+                if (!checked && category === "공지") {
+                  setCategory(TOPICS[0]);
+                }
+              }}
+            />
             📌 공지로 등록
           </label>
           {isNotice && (

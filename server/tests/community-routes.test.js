@@ -636,7 +636,7 @@ test("관리자가 PATCH로 isNotice를 false로 내리면 pinned도 함께 꺼�
   const res = await request(app)
     .patch(`/api/community/posts/${createRes.body.id}`)
     .set("Cookie", adminCookie)
-    .send({ isNotice: false });
+    .send({ isNotice: false, tag: "고민" });
   assert.equal(res.status, 200);
   assert.equal(res.body.isNotice, false);
   assert.equal(res.body.pinned, false);
@@ -661,4 +661,97 @@ test("이미 공지인 글에 pinned만 보내면 isNotice는 그대로 유지�
   assert.equal(res.status, 200);
   assert.equal(res.body.isNotice, true);
   assert.equal(res.body.pinned, true);
+});
+
+test("리치 에디터 도입 전 저장된 비정화(unsanitized) 본문도 조회 시점에 안전하게 걸러진다", async () => {
+  const agent = request.agent(app);
+  const author = await signup(agent);
+  const authorUser = await User.findOne({ email: author.email });
+
+  // 과거 Notice/Post 컬렉션에는 sanitize-html을 거치지 않은 본문이 남아있을 수 있다.
+  // 라우트를 거치지 않고 직접 Model로 심어서 그 상황을 재현한다.
+  const legacyPost = await Post.create({
+    author: authorUser._id,
+    tag: "고민",
+    title: "레거시 게시글",
+    body: '<p>안전한 내용</p><script>alert(1)</script>',
+  });
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.status, 200);
+  assert.ok(listRes.body[0].body.includes("안전한 내용"));
+  assert.ok(!listRes.body[0].body.includes("script"));
+
+  const detailRes = await request(app).get(`/api/community/posts/${legacyPost._id}`);
+  assert.equal(detailRes.status, 200);
+  assert.ok(detailRes.body.body.includes("안전한 내용"));
+  assert.ok(!detailRes.body.body.includes("script"));
+});
+
+test("공지로 승격된 글은 원작성자(비관리자)가 더 이상 수정/삭제할 수 없고, 관리자는 계속 수정할 수 있다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "notice-author@test.com" });
+  const createRes = await authorAgent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "원본", body: "내용" });
+  assert.equal(createRes.status, 201);
+
+  const adminCookie = await createAdminCookie();
+  const promoteRes = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ isNotice: true });
+  assert.equal(promoteRes.status, 200);
+  assert.equal(promoteRes.body.isNotice, true);
+
+  const editAttempt = await authorAgent
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .send({ title: "원작성자가 수정 시도" });
+  assert.equal(editAttempt.status, 403);
+
+  const deleteAttempt = await authorAgent.delete(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(deleteAttempt.status, 403);
+
+  const adminEditRes = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ title: "관리자가 수정함" });
+  assert.equal(adminEditRes.status, 200);
+  assert.equal(adminEditRes.body.title, "관리자가 수정함");
+});
+
+test("일반 사용자가 tag를 '공지'로 보내면 isNotice가 없어도 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "공지", title: "가짜 공지", body: "내용" });
+  assert.equal(res.status, 400);
+});
+
+test("관리자가 tag: 공지, isNotice: true로 작성하면 정상적으로 201을 반환한다(회귀 확인)", async () => {
+  const admin = await User.create({ name: "관리자", email: "admin-notice4@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  const res = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", `${COOKIE_NAME}=${token}`)
+    .send({ tag: "공지", title: "진짜 공지", body: "내용", isNotice: true });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.isNotice, true);
+  assert.equal(res.body.tag, "공지");
+});
+
+test("공지 태그를 그대로 둔 채 isNotice만 false로 내리려 하면 400을 반환한다", async () => {
+  const adminCookie = await createAdminCookie();
+  const createRes = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", adminCookie)
+    .send({ tag: "고민", title: "공지", body: "내용", isNotice: true });
+  assert.equal(createRes.body.tag, "공지");
+
+  const res = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ isNotice: false });
+  assert.equal(res.status, 400);
 });

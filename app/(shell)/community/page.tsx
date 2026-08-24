@@ -10,13 +10,8 @@ import { apiFetch } from "@/lib/api";
 import { TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
+import { stripHtml } from "./htmlUtils";
 import type { CommunityPost } from "./types";
-
-function stripHtml(html: string) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  return (tmp.textContent ?? "").replace(/\s+/g, " ").trim();
-}
 
 function firstImageSrc(html: string) {
   return html.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? null;

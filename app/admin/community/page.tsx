@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { stripHtml } from "@/app/(shell)/community/htmlUtils";
 
 type AdminComment = { id: string; authorId: string; text: string; createdAt: string };
 type AdminPost = {
@@ -75,7 +76,7 @@ export default function AdminCommunityPage() {
               </div>
               <div className="mb-1.5 font-bold text-text">{post.title}</div>
               <div className="mb-3 flex gap-3">
-                <p className="line-clamp-2 flex-1 text-[13px] text-text-muted">{post.body}</p>
+                <p className="line-clamp-2 flex-1 text-[13px] text-text-muted">{stripHtml(post.body)}</p>
                 {post.image && (
                   // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI
                   <img

@@ -57,6 +57,7 @@ async function resolveNoticeFields(req, payload) {
 
 function authorLabel(user) {
   if (!user) return "회원";
+  if (user.role === "admin") return "관리자";
   return user.role === "counselor" ? "상담사" : "고민 청소년";
 }
 
@@ -65,7 +66,7 @@ function serializePost(post, userId) {
     id: post._id.toString(),
     tag: post.tag,
     title: post.title,
-    body: post.body,
+    body: sanitizeBody(post.body),
     image: post.image ?? null,
     isMine: userId ? post.author?._id?.toString() === userId : false,
     isNotice: !!post.isNotice,
@@ -84,11 +85,12 @@ function serializePost(post, userId) {
 
 async function canModifyPost(req, post) {
   const authorId = (post.author?._id ?? post.author)?.toString();
-  if (authorId === req.user.id) {
-    return true;
-  }
   const requester = await User.findById(req.user.id);
-  return requester?.role === "admin";
+  const isAdmin = requester?.role === "admin";
+  if (post.isNotice) {
+    return isAdmin;
+  }
+  return authorId === req.user.id || isAdmin;
 }
 
 function serializeComment(comment) {
@@ -164,6 +166,10 @@ router.post("/posts", requireAuth, async (req, res) => {
     const noticeFields = await resolveNoticeFields(req, { isNotice, pinned });
     const finalIsNotice = noticeFields.isNotice === true;
     const finalPinned = finalIsNotice && noticeFields.pinned === true;
+
+    if (tag === "공지" && !finalIsNotice) {
+      return res.status(400).json({ error: "잘못된 태그예요" });
+    }
 
     const post = await Post.create({
       author: req.user.id,
@@ -243,6 +249,9 @@ router.patch("/posts/:id", requireAuth, async (req, res) => {
     }
     if (!post.isNotice) {
       post.pinned = false;
+    }
+    if (post.tag === "공지" && !post.isNotice) {
+      return res.status(400).json({ error: "잘못된 태그예요" });
     }
 
     await post.save();
