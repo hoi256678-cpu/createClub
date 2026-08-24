@@ -15,11 +15,29 @@ import NoticeEditor from "./NoticeEditor";
 import type { CommunityPost, NoticeItem } from "./types";
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return (tmp.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
 function firstImageSrc(html: string) {
   return html.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? null;
+}
+
+// 마이그레이션 전 평문(\n 줄바꿈만 있던) 공지 본문인지 판별한다 — HTML 태그가 하나도 없으면 레거시로 본다.
+function isLegacyPlainText(body: string) {
+  return !/<[a-z][^>]*>/i.test(body);
+}
+
+// 레거시 평문 본문을 TipTap 에디터가 안전하게 파싱할 수 있는 HTML로 변환한다.
+// HTML로 파싱될 때 \n이 공백으로 뭉개지는 것을 막기 위해 줄바꿈을 명시적인
+// 태그(p/br)로 바꿔준다.
+function legacyPlainTextToHtml(text: string): string {
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return escaped
+    .split(/\n{2,}/)
+    .map((para) => `<p>${para.replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
 type Tab = "best" | "all" | "notice";
@@ -95,7 +113,7 @@ function CommunityPageContent() {
   function startEditNotice(n: NoticeItem) {
     setEditingNoticeId(n.id);
     setEditNoticeTitle(n.title);
-    setEditNoticeBody(n.body);
+    setEditNoticeBody(isLegacyPlainText(n.body) ? legacyPlainTextToHtml(n.body) : n.body);
     setEditNoticePinned(n.pinned);
     setNoticeFormError(null);
   }

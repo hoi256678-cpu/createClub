@@ -89,3 +89,22 @@ test("공지 목록/상세 응답에 pinned 필드가 포함된다", async () =>
   const res = await request(app).get("/api/community/notices");
   assert.equal(res.body[0].pinned, true);
 });
+
+test("관리자 라우트를 거치지 않고 DB에 직접 들어간(레거시/변조된) 미정제 본문도 조회 시 정제된다", async () => {
+  const notice = await Notice.create({
+    title: "제목",
+    body: '<p>안전</p><script>alert(1)</script>',
+  });
+
+  const listRes = await request(app).get("/api/community/notices");
+  assert.equal(listRes.status, 200);
+  assert.ok(listRes.body[0].body.includes("안전"));
+  assert.ok(!listRes.body[0].body.includes("<script>"));
+  assert.ok(!listRes.body[0].body.includes("alert"));
+
+  const detailRes = await request(app).get(`/api/community/notices/${notice._id}`);
+  assert.equal(detailRes.status, 200);
+  assert.ok(detailRes.body.body.includes("안전"));
+  assert.ok(!detailRes.body.body.includes("<script>"));
+  assert.ok(!detailRes.body.body.includes("alert"));
+});

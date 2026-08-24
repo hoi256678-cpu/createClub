@@ -67,6 +67,15 @@ body {
 .notice-body {
   white-space: pre-line;
 }
+/*
+ * TipTap의 실시간 편집 영역(.ProseMirror)은 상위의 white-space: pre-line을
+ * 그대로 상속하면 안 된다 — ProseMirror는 pre-line을 명시적으로 비허용 값으로
+ * 취급하며 pre-wrap을 기대한다(콘솔 경고 + 줄 끝 공백 처리 불안정 유발).
+ * 읽기 전용 상세 페이지에는 .ProseMirror 자식이 없으므로 이 규칙의 영향이 없다.
+ */
+.notice-body .ProseMirror {
+  white-space: pre-wrap;
+}
 .notice-body p {
   margin-bottom: 0.75em;
 }

@@ -1,19 +1,9 @@
 const express = require("express");
-const sanitizeHtml = require("sanitize-html");
 const Notice = require("../models/Notice");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
+const { sanitizeBody } = require("../lib/sanitizeNotice");
 
 const router = express.Router();
-
-const SANITIZE_OPTIONS = {
-  allowedTags: ["p", "br", "b", "strong", "i", "em", "a", "img", "ul", "ol", "li"],
-  allowedAttributes: { a: ["href"], img: ["src"] },
-  allowedSchemesByTag: { img: ["data"] },
-  allowedSchemes: ["http", "https"],
-  transformTags: {
-    a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noopener noreferrer nofollow" }),
-  },
-};
 
 const IMG_TAG_RE = /<img\s+src="([^"]*)"/g;
 const VALID_IMAGE_SRC_RE = /^data:image\/(jpeg|png|webp);base64,/;
@@ -24,7 +14,7 @@ const MAX_BODY_LEN = 12_000_000;
 class ValidationError extends Error {}
 
 function sanitizeAndValidateBody(rawBody) {
-  const clean = sanitizeHtml(rawBody, SANITIZE_OPTIONS);
+  const clean = sanitizeBody(rawBody);
   if (clean.length > MAX_BODY_LEN) {
     throw new ValidationError("내용이 너무 커요");
   }
@@ -41,6 +31,12 @@ function sanitizeAndValidateBody(rawBody) {
     }
   }
   return clean;
+}
+
+function isBodyEmpty(clean) {
+  const hasText = clean.replace(/<[^>]*>/g, "").trim().length > 0;
+  const hasImage = /<img\s/.test(clean);
+  return !hasText && !hasImage;
 }
 
 function serializeNotice(notice) {
@@ -72,7 +68,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       }
       throw err;
     }
-    if (!cleanBody.trim()) {
+    if (isBodyEmpty(cleanBody)) {
       return res.status(400).json({ error: "제목과 내용을 모두 입력해주세요" });
     }
 
@@ -117,7 +113,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
         }
         throw err;
       }
-      if (!cleanBody.trim()) {
+      if (isBodyEmpty(cleanBody)) {
         return res.status(400).json({ error: "내용을 입력해주세요" });
       }
       notice.body = cleanBody;

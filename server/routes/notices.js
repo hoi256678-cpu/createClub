@@ -1,5 +1,6 @@
 const express = require("express");
 const Notice = require("../models/Notice");
+const { sanitizeBody } = require("../lib/sanitizeNotice");
 
 const router = express.Router();
 
@@ -7,7 +8,7 @@ function serializeNotice(notice) {
   return {
     id: notice._id.toString(),
     title: notice.title,
-    body: notice.body,
+    body: sanitizeBody(notice.body),
     pinned: notice.pinned,
     createdAt: notice.createdAt,
   };

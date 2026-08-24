@@ -147,6 +147,25 @@ test("이미지 mime 타입이 올바르지 않으면 400을 반환한다", asyn
   assert.equal(res.status, 400);
 });
 
+test("빈 문단만 있는 본문(<p></p><p></p>)으로 작성하면 400을 반환한다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: "<p></p><p></p>" });
+  assert.equal(res.status, 400);
+});
+
+test("텍스트 없이 이미지만 있는 본문은 유효하다 (201)", async () => {
+  const admin = await createAdmin();
+  const img = `<img src="data:image/jpeg;base64,${"a".repeat(100)}">`;
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: img });
+  assert.equal(res.status, 201);
+});
+
 test("pinned: true로 작성하면 고정된 공지로 저장된다", async () => {
   const admin = await createAdmin();
   const res = await request(app)
