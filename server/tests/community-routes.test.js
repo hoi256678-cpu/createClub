@@ -550,6 +550,15 @@ test("이미지가 5장을 초과하면 400을 반환한다", async () => {
   assert.equal(res.status, 400);
 });
 
+test("본문이 12,000,000자를 넘으면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "<p>" + "a".repeat(12_000_001) + "</p>" });
+  assert.equal(res.status, 400);
+});
+
 test("이미지 하나가 2MB를 초과하면 400을 반환한다", async () => {
   const agent = request.agent(app);
   await signup(agent);
