@@ -4,6 +4,7 @@ const { MongoMemoryServer } = require("mongodb-memory-server");
 const mongoose = require("mongoose");
 const request = require("supertest");
 const User = require("../models/User");
+const Post = require("../models/Post");
 const { signToken, COOKIE_NAME } = require("../lib/token");
 
 process.env.JWT_SECRET = "test-secret";
@@ -91,15 +92,6 @@ test("제목이 100자를 넘으면 400을 반환한다", async () => {
 
   const longTitle = "가".repeat(101);
   const res = await agent.post("/api/community/posts").send({ tag: "고민", title: longTitle, body: "내용" });
-  assert.equal(res.status, 400);
-});
-
-test("내용이 5000자를 넘으면 400을 반환한다", async () => {
-  const agent = request.agent(app);
-  await signup(agent);
-
-  const longBody = "가".repeat(5001);
-  const res = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: longBody });
   assert.equal(res.status, 400);
 });
 
@@ -341,21 +333,6 @@ test("댓글 작성자 계정이 삭제돼도 게시글 상세 조회는 500 대
   assert.equal(res.body.comments[0].authorName, "(탈퇴한 회원)");
 });
 
-test("이미지와 함께 게시글을 작성하면 응답과 목록에 이미지가 포함된다", async () => {
-  const agent = request.agent(app);
-  await signup(agent);
-  const validImage = "data:image/jpeg;base64," + "a".repeat(100);
-
-  const res = await agent
-    .post("/api/community/posts")
-    .send({ tag: "고민", title: "제목", body: "내용", image: validImage });
-  assert.equal(res.status, 201);
-  assert.equal(res.body.image, validImage);
-
-  const listRes = await request(app).get("/api/community/posts");
-  assert.equal(listRes.body[0].image, validImage);
-});
-
 test("이미지 없이 게시글을 작성하면 image가 null이다", async () => {
   const agent = request.agent(app);
   await signup(agent);
@@ -365,37 +342,20 @@ test("이미지 없이 게시글을 작성하면 image가 null이다", async () 
   assert.equal(res.body.image, null);
 });
 
-test("잘못된 형식의 이미지 값이면 400을 반환한다", async () => {
+test("내가 쓴 글/저장한 글 목록은 이미지를 제외해 대역폭을 아끼지만, 전체 목록에는 이미지가 그대로 나온다 (과거 게시글의 image 필드 하위호환)", async () => {
   const agent = request.agent(app);
-  await signup(agent);
-
-  const res = await agent
-    .post("/api/community/posts")
-    .send({ tag: "고민", title: "제목", body: "내용", image: "not-a-data-uri" });
-  assert.equal(res.status, 400);
-});
-
-test("이미지 용량이 너무 크면 400을 반환한다", async () => {
-  const agent = request.agent(app);
-  await signup(agent);
-  const tooLargeImage = "data:image/jpeg;base64," + "a".repeat(2_000_001);
-
-  const res = await agent
-    .post("/api/community/posts")
-    .send({ tag: "고민", title: "제목", body: "내용", image: tooLargeImage });
-  assert.equal(res.status, 400);
-});
-
-test("내가 쓴 글/저장한 글 목록은 이미지를 제외해 대역폭을 아끼지만, 전체 목록에는 이미지가 그대로 나온다", async () => {
-  const agent = request.agent(app);
-  await signup(agent);
+  const author = await signup(agent);
+  const authorUser = await User.findOne({ email: author.email });
   const validImage = "data:image/jpeg;base64," + "a".repeat(100);
 
-  const createRes = await agent
-    .post("/api/community/posts")
-    .send({ tag: "고민", title: "제목", body: "내용", image: validImage });
-  assert.equal(createRes.status, 201);
-  await agent.post(`/api/community/posts/${createRes.body.id}/save`);
+  const legacyPost = await Post.create({
+    author: authorUser._id,
+    tag: "고민",
+    title: "과거 게시글",
+    body: "내용",
+    image: validImage,
+  });
+  await agent.post(`/api/community/posts/${legacyPost._id}/save`);
 
   const myPostsRes = await agent.get("/api/community/my-posts");
   assert.equal(myPostsRes.status, 200);
@@ -517,15 +477,6 @@ test("100자를 넘는 제목으로 수정하려 하면 400을 반환한다", as
   assert.equal(res.status, 400);
 });
 
-test("5000자를 넘는 내용으로 수정하려 하면 400을 반환한다", async () => {
-  const agent = request.agent(app);
-  await signup(agent);
-  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
-
-  const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ body: "a".repeat(5001) });
-  assert.equal(res.status, 400);
-});
-
 test("본인 게시글을 삭제하면 목록에서 사라진다", async () => {
   const agent = request.agent(app);
   await signup(agent);
@@ -576,4 +527,108 @@ test("존재하지 않는 게시글을 삭제하려 하면 404를 반환한다",
   const missingId = new mongoose.Types.ObjectId().toString();
   const res = await agent.delete(`/api/community/posts/${missingId}`);
   assert.equal(res.status, 404);
+});
+
+test("스크립트 태그는 저장 전 제거된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: '<p>안전한 내용</p><script>alert(1)</script>' });
+  assert.equal(res.status, 201);
+  assert.ok(res.body.body.includes("안전한 내용"));
+  assert.ok(!res.body.body.includes("script"));
+});
+
+test("이미지가 5장을 초과하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const img = '<img src="data:image/jpeg;base64,aGVsbG8=">';
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: img.repeat(6) });
+  assert.equal(res.status, 400);
+});
+
+test("이미지 하나가 2MB를 초과하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const tooLargeImage = `<img src="data:image/jpeg;base64,${"a".repeat(2_000_001)}">`;
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: tooLargeImage });
+  assert.equal(res.status, 400);
+});
+
+test("빈 문단만 있는 본문은 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "<p></p><p></p>" });
+  assert.equal(res.status, 400);
+});
+
+test("텍스트 없이 이미지만 있는 본문은 정상 작성된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const img = '<img src="data:image/jpeg;base64,' + "a".repeat(100) + '">';
+  const res = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: img });
+  assert.equal(res.status, 201);
+});
+
+test("관리자가 공지로 등록하면 isNotice가 true로 저장된다", async () => {
+  const admin = await User.create({ name: "관리자", email: "admin-notice1@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  const res = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", `${COOKIE_NAME}=${token}`)
+    .send({ tag: "고민", title: "공지 제목", body: "공지 내용", isNotice: true, pinned: true });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.isNotice, true);
+  assert.equal(res.body.pinned, true);
+  assert.equal(res.body.tag, "공지");
+});
+
+test("일반 사용자가 isNotice를 보내도 무시된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const res = await agent
+    .post("/api/community/posts")
+    .send({ tag: "고민", title: "제목", body: "내용", isNotice: true, pinned: true });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.isNotice, false);
+  assert.equal(res.body.pinned, false);
+});
+
+test("isNotice 없이 pinned만 true로 보내면 무시된다(고정은 공지에만 가능)", async () => {
+  const admin = await User.create({ name: "관리자", email: "admin-notice2@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  const res = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", `${COOKIE_NAME}=${token}`)
+    .send({ tag: "고민", title: "제목", body: "내용", pinned: true });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.isNotice, false);
+  assert.equal(res.body.pinned, false);
+});
+
+test("관리자가 PATCH로 isNotice를 false로 내리면 pinned도 함께 꺼진다", async () => {
+  const admin = await User.create({ name: "관리자", email: "admin-notice3@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  const adminCookie = `${COOKIE_NAME}=${token}`;
+
+  const createRes = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", adminCookie)
+    .send({ tag: "고민", title: "공지", body: "내용", isNotice: true, pinned: true });
+  assert.equal(createRes.body.pinned, true);
+
+  const res = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ isNotice: false });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.isNotice, false);
+  assert.equal(res.body.pinned, false);
 });
