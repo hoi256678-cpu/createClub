@@ -11,7 +11,7 @@ import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatNoticeDate, formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
-import NoticeEditor from "./NoticeEditor";
+import NoticeEditor from "./PostEditor";
 import type { CommunityPost, NoticeItem } from "./types";
 
 function stripHtml(html: string) {

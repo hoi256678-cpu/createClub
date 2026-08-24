@@ -5,6 +5,8 @@ export type CommunityPost = {
   body: string;
   image: string | null;
   isMine: boolean;
+  isNotice: boolean;
+  pinned: boolean;
   authorName: string;
   authorRole: string;
   createdAt: string;

@@ -15,7 +15,7 @@ type Props = {
   onChange: (html: string) => void;
 };
 
-export default function NoticeEditor({ value, onChange }: Props) {
+export default function PostEditor({ value, onChange }: Props) {
   const [imageError, setImageError] = useState<string | null>(null);
 
   const editor = useEditor({
@@ -118,7 +118,7 @@ export default function NoticeEditor({ value, onChange }: Props) {
       </div>
       <EditorContent
         editor={editor}
-        className="notice-body min-h-[120px] px-3 py-2 text-sm text-text-2 [&_.ProseMirror]:outline-none"
+        className="rich-body min-h-[120px] px-3 py-2 text-sm text-text-2 [&_.ProseMirror]:outline-none"
       />
       {imageError && <p className="px-3 pb-2 text-xs font-semibold text-danger">{imageError}</p>}
     </div>
