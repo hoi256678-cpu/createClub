@@ -24,7 +24,7 @@ function serializePost(post, userId) {
     authorName: post.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(post.author),
     createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
+    editedAt: post.editedAt ?? null,
     views: post.views,
     likeCount: post.likedBy.length,
     cmtCount: post.comments.length,
@@ -134,6 +134,7 @@ router.patch("/posts/:id", requireAuth, async (req, res) => {
     }
 
     const { tag, title, body } = req.body || {};
+    const editingContent = typeof tag === "string" || typeof title === "string" || typeof body === "string";
     if (typeof tag === "string") {
       if (!tag.trim()) {
         return res.status(400).json({ error: "태그를 선택해주세요" });
@@ -157,6 +158,9 @@ router.patch("/posts/:id", requireAuth, async (req, res) => {
         return res.status(400).json({ error: "내용은 5000자를 넘을 수 없어요" });
       }
       post.body = body.trim();
+    }
+    if (editingContent) {
+      post.editedAt = new Date();
     }
 
     await post.save();

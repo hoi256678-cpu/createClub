@@ -431,20 +431,33 @@ test("본인 게시글을 수정하면 반영된다", async () => {
   assert.equal(res.body.isMine, true);
 });
 
-test("게시글을 수정하면 updatedAt이 createdAt 이후 시각으로 갱신된다", async () => {
+test("게시글을 수정하면 editedAt이 설정된다", async () => {
   const agent = request.agent(app);
   await signup(agent);
   const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "원본 내용" });
-  assert.ok(!Number.isNaN(new Date(createRes.body.createdAt).getTime()));
+  assert.equal(createRes.body.editedAt, null);
 
   const res = await agent
     .patch(`/api/community/posts/${createRes.body.id}`)
     .send({ title: "수정됨", body: "수정된 내용" });
   assert.equal(res.status, 200);
-  assert.ok(!Number.isNaN(new Date(res.body.updatedAt).getTime()));
-  assert.ok(
-    new Date(res.body.updatedAt).getTime() >= new Date(createRes.body.createdAt).getTime()
-  );
+  assert.ok(res.body.editedAt);
+  assert.ok(!Number.isNaN(new Date(res.body.editedAt).getTime()));
+});
+
+test("좋아요/댓글/저장으로는 editedAt이 설정되지 않는다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+  const postId = createRes.body.id;
+
+  await agent.post(`/api/community/posts/${postId}/like`);
+  await agent.post(`/api/community/posts/${postId}/save`);
+  await agent.post(`/api/community/posts/${postId}/comments`).send({ text: "댓글" });
+  await request(app).get(`/api/community/posts/${postId}`); // 조회수 증가
+
+  const res = await request(app).get(`/api/community/posts/${postId}`);
+  assert.equal(res.body.editedAt, null);
 });
 
 test("다른 사람의 게시글을 수정하려 하면 403을 반환한다", async () => {
