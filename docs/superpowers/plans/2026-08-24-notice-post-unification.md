@@ -1384,7 +1384,7 @@ import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatNoticeDate, formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
-import NoticeEditor from "./NoticeEditor";
+import NoticeEditor from "./PostEditor";
 import type { CommunityPost, NoticeItem } from "./types";
 
 function stripHtml(html: string) {
@@ -1416,6 +1416,8 @@ function legacyPlainTextToHtml(text: string): string {
 type Tab = "best" | "all" | "notice";
 type Sort = "recent" | "likes" | "comments" | "views";
 ```
+
+(참고: `NoticeEditor` import 경로는 Task 3의 최소 호환 패치로 이미 `"./PostEditor"`로 바뀌어 있다 — 지역 변수명 `NoticeEditor`는 그대로다. 아래 "교체 후" 블록에서 이 import를 완전히 정리한다.)
 
 를:
 
