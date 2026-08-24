@@ -12,6 +12,10 @@ import { TOPICS, TOPIC_EMOJI } from "../mock";
 import { formatRelativeTime } from "../time";
 import type { CommunityPostDetail } from "../types";
 
+function wasEdited(post: { createdAt: string; updatedAt: string }) {
+  return new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 1000; // 1초는 저장 처리 시간 오차로 간주
+}
+
 export default function CommunityPostPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -78,6 +82,7 @@ export default function CommunityPostPage() {
       return;
     }
     if (res.ok) {
+      refreshPostCounts();
       router.push("/community");
     }
     setConfirmDelete(false);
@@ -159,6 +164,7 @@ export default function CommunityPostPage() {
           </div>
           <div className="mb-5 border-b border-border pb-4 text-[13px] text-text-muted">
             {post.authorName} · {post.authorRole} · {formatRelativeTime(post.createdAt)} · 조회 {post.views}
+            {wasEdited(post) && <span className="ml-1 text-text-faint">(수정됨)</span>}
           </div>
           {post.image && (
             // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI

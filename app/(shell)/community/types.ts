@@ -8,6 +8,7 @@ export type CommunityPost = {
   authorName: string;
   authorRole: string;
   createdAt: string;
+  updatedAt: string;
   views: number;
   likeCount: number;
   cmtCount: number;

@@ -24,6 +24,7 @@ function serializePost(post, userId) {
     authorName: post.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(post.author),
     createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
     views: post.views,
     likeCount: post.likedBy.length,
     cmtCount: post.comments.length,
@@ -33,7 +34,8 @@ function serializePost(post, userId) {
 }
 
 async function canModifyPost(req, post) {
-  if (post.author.toString() === req.user.id) {
+  const authorId = (post.author?._id ?? post.author)?.toString();
+  if (authorId === req.user.id) {
     return true;
   }
   const requester = await User.findById(req.user.id);

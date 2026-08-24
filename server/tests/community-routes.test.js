@@ -431,6 +431,22 @@ test("본인 게시글을 수정하면 반영된다", async () => {
   assert.equal(res.body.isMine, true);
 });
 
+test("게시글을 수정하면 updatedAt이 createdAt 이후 시각으로 갱신된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "원본 내용" });
+  assert.ok(!Number.isNaN(new Date(createRes.body.createdAt).getTime()));
+
+  const res = await agent
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .send({ title: "수정됨", body: "수정된 내용" });
+  assert.equal(res.status, 200);
+  assert.ok(!Number.isNaN(new Date(res.body.updatedAt).getTime()));
+  assert.ok(
+    new Date(res.body.updatedAt).getTime() >= new Date(createRes.body.createdAt).getTime()
+  );
+});
+
 test("다른 사람의 게시글을 수정하려 하면 403을 반환한다", async () => {
   const authorAgent = request.agent(app);
   await signup(authorAgent, { email: "author@test.com" });

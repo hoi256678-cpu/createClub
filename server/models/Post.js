@@ -20,7 +20,7 @@ const postSchema = new mongoose.Schema(
     savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Post", postSchema);
