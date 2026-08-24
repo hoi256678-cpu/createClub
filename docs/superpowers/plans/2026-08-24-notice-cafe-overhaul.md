@@ -17,7 +17,7 @@
 - 모든 태스크 완료 후 반드시 통과해야 함: 백엔드는 `cd server && node --test`, 프론트는 `npx tsc --noEmit`, `npx eslint .`, `npm run build`.
 - 커밋은 브랜치 없이 `main`에 직접 한다.
 - 커밋 메시지 끝에 `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` 포함.
-- 공지 본문 이미지는 공지 1개당 최대 5장, 리사이즈 후 장당 2MB(2,000,000자) 이하, 전체 본문(HTML+이미지) 8MB(8,000,000자) 이하.
+- 공지 본문 이미지는 공지 1개당 최대 5장, 리사이즈 후 장당 2MB(2,000,000자) 이하, 전체 본문(HTML+이미지) 12MB(12,000,000자) 이하(5장×2MB=10MB보다 여유 있게 잡은 값 — 8MB로는 이미지만으로 한도를 넘을 수 있어 12MB로 조정).
 - 이미지는 `data:image/(jpeg|png|webp);base64,` 형식만 허용, 링크(`a[href]`)는 `http`/`https`만 허용.
 - 고정(`pinned`) 공지 개수 제한 없음. 정렬은 항상 `pinned desc, createdAt desc`.
 
@@ -30,9 +30,10 @@
 - Modify: `server/routes/adminNotices.js`
 - Modify: `server/tests/admin-notices-routes.test.js`
 - Modify: `server/package.json`
+- Modify: `server/index.js`
 
 **Interfaces:**
-- Produces: `Notice.pinned: boolean`(기본 `false`), `Notice.body`는 sanitize된 HTML 문자열(최대 8,000,000자). `POST /api/admin/notices`, `PATCH /api/admin/notices/:id`가 선택적 `pinned: boolean`을 받고, `body`를 저장 전 sanitize·검증한다. 응답(`serializeNotice`)에 `pinned` 필드 포함.
+- Produces: `Notice.pinned: boolean`(기본 `false`), `Notice.body`는 sanitize된 HTML 문자열(최대 12,000,000자). `POST /api/admin/notices`, `PATCH /api/admin/notices/:id`가 선택적 `pinned: boolean`을 받고, `body`를 저장 전 sanitize·검증하며, 최대 15MB 요청 바디를 받을 수 있다(`index.js`에 이 경로 전용 바디 크기 제한을 이 태스크에서 함께 추가한다 — Task 1 자신의 12MB 바디 테스트가 통과하려면 필요). 응답(`serializeNotice`)에 `pinned` 필드 포함.
 - Task 2(공개 GET 라우트)가 이 `pinned` 필드를 정렬 기준으로 사용한다.
 
 - [ ] **Step 1: `sanitize-html` 설치**
@@ -67,7 +68,7 @@ const mongoose = require("mongoose");
 const noticeSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 100 },
-    body: { type: String, required: true, maxlength: 8_000_000 },
+    body: { type: String, required: true, maxlength: 12_000_000 },
     pinned: { type: Boolean, default: false },
   },
   { timestamps: true }
@@ -78,7 +79,26 @@ module.exports = mongoose.model("Notice", noticeSchema);
 
 로 교체한다.
 
-- [ ] **Step 3: 실패하는 테스트 작성**
+- [ ] **Step 3: `index.js`에 `/api/admin/notices` 전용 바디 크기 제한 추가**
+
+`server/index.js`의:
+
+```js
+app.use("/api/community/posts", express.json({ limit: "3mb" }));
+app.use(express.json());
+```
+
+를:
+
+```js
+app.use("/api/community/posts", express.json({ limit: "3mb" }));
+app.use("/api/admin/notices", express.json({ limit: "15mb" }));
+app.use(express.json());
+```
+
+로 교체한다. (공지 본문은 이미지를 최대 5장까지 담을 수 있어, 다음 단계에서 만들 12MB `body` 한도 테스트가 실제로 라우트 핸들러까지 도달하려면 이 시점에 미리 필요하다 — 기본 `express.json()`의 100KB 제한으로는 큰 본문이 라우트에 닿기 전에 body-parser에서 막힌다.)
+
+- [ ] **Step 4: 실패하는 테스트 작성**
 
 `server/tests/admin-notices-routes.test.js`에서 기존 테스트:
 
@@ -96,12 +116,12 @@ test("내용이 2000자를 초과하면 400을 반환한다", async () => {
 를:
 
 ```js
-test("내용이 8,000,000자를 초과하면 400을 반환한다", async () => {
+test("내용이 12,000,000자를 초과하면 400을 반환한다", async () => {
   const admin = await createAdmin();
   const res = await request(app)
     .post("/api/admin/notices")
     .set("Cookie", adminCookie(admin))
-    .send({ title: "제목", body: "a".repeat(8_000_001) });
+    .send({ title: "제목", body: "a".repeat(12_000_001) });
   assert.equal(res.status, 400);
 });
 
@@ -191,7 +211,7 @@ test("admin이 pinned를 수정하면 반영된다", async () => {
 
 로 교체한다.
 
-- [ ] **Step 4: 테스트 실행해 실패 확인**
+- [ ] **Step 5: 테스트 실행해 실패 확인**
 
 ```bash
 cd server && node --test tests/admin-notices-routes.test.js
@@ -199,7 +219,7 @@ cd server && node --test tests/admin-notices-routes.test.js
 
 Expected: FAIL (`sanitize-html`을 아직 안 쓰고, `pinned` 필드도 없고, 검증 로직도 없어서 여러 케이스가 400 대신 201이 나오거나 `pinned`가 `undefined`).
 
-- [ ] **Step 5: `adminNotices.js`에 sanitize + 검증 + pinned 처리 추가**
+- [ ] **Step 6: `adminNotices.js`에 sanitize + 검증 + pinned 처리 추가**
 
 `server/routes/adminNotices.js` 전체를:
 
@@ -310,7 +330,7 @@ const IMG_TAG_RE = /<img\s+src="([^"]*)"/g;
 const VALID_IMAGE_SRC_RE = /^data:image\/(jpeg|png|webp);base64,/;
 const MAX_IMAGES = 5;
 const MAX_IMAGE_LEN = 2_000_000;
-const MAX_BODY_LEN = 8_000_000;
+const MAX_BODY_LEN = 12_000_000;
 
 class ValidationError extends Error {}
 
@@ -448,7 +468,7 @@ module.exports = router;
 
 로 교체한다.
 
-- [ ] **Step 6: 테스트 실행해 통과 확인**
+- [ ] **Step 7: 테스트 실행해 통과 확인**
 
 ```bash
 cd server && node --test tests/admin-notices-routes.test.js
@@ -456,16 +476,17 @@ cd server && node --test tests/admin-notices-routes.test.js
 
 Expected: 전부 PASS.
 
-- [ ] **Step 7: 커밋**
+- [ ] **Step 8: 커밋**
 
 ```bash
-git add server/models/Notice.js server/routes/adminNotices.js server/tests/admin-notices-routes.test.js server/package.json server/package-lock.json
+git add server/models/Notice.js server/routes/adminNotices.js server/tests/admin-notices-routes.test.js server/package.json server/package-lock.json server/index.js
 git commit -m "$(cat <<'EOF'
 feat: 공지사항 본문 HTML sanitize + 이미지 검증 + 고정(pinned) 필드 추가
 
 관리자 계정 탈취나 요청 조작 시 저장형 XSS가 전체 방문자에게 노출되는 걸
 막기 위해 sanitize-html로 저장 직전 화이트리스트 필터링을 추가한다.
-이미지는 공지당 최대 5장, 장당 2MB, 본문 전체 8MB로 제한한다.
+이미지는 공지당 최대 5장, 장당 2MB, 본문 전체 12MB로 제한하고
+/api/admin/notices 요청 바디 제한을 15mb로 늘린다.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
@@ -474,16 +495,15 @@ EOF
 
 ---
 
-## Task 2: 백엔드 — 공지 목록 정렬(고정 우선) + 바디 크기 제한
+## Task 2: 백엔드 — 공지 목록 정렬(고정 우선)
 
 **Files:**
 - Modify: `server/routes/notices.js`
 - Modify: `server/tests/notice-routes.test.js`
-- Modify: `server/index.js`
 
 **Interfaces:**
 - Consumes: Task 1의 `Notice.pinned` 필드.
-- Produces: `GET /api/community/notices`가 `pinned desc, createdAt desc`로 정렬된 목록을 반환하고, 각 항목에 `pinned` 필드를 포함한다. `POST`/`PATCH /api/admin/notices`가 최대 10MB 요청 바디를 받을 수 있다(Task 1에서 만든 이미지 포함 본문이 실제로 서버까지 도달하려면 필요).
+- Produces: `GET /api/community/notices`가 `pinned desc, createdAt desc`로 정렬된 목록을 반환하고, 각 항목에 `pinned` 필드를 포함한다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -575,26 +595,7 @@ cd server && node --test tests/notice-routes.test.js
 
 Expected: 전부 PASS.
 
-- [ ] **Step 5: `index.js`에 `/api/admin/notices` 전용 바디 크기 제한 추가**
-
-`server/index.js`의:
-
-```js
-app.use("/api/community/posts", express.json({ limit: "3mb" }));
-app.use(express.json());
-```
-
-를:
-
-```js
-app.use("/api/community/posts", express.json({ limit: "3mb" }));
-app.use("/api/admin/notices", express.json({ limit: "10mb" }));
-app.use(express.json());
-```
-
-로 교체한다. (공지 본문은 게시글과 달리 이미지를 최대 5장까지 담을 수 있어 더 큰 제한이 필요하다.)
-
-- [ ] **Step 6: 전체 백엔드 테스트 재확인 + 커밋**
+- [ ] **Step 5: 전체 백엔드 테스트 재확인 + 커밋**
 
 ```bash
 cd server && node --test
@@ -603,9 +604,9 @@ cd server && node --test
 Expected: 전부 PASS.
 
 ```bash
-git add server/routes/notices.js server/tests/notice-routes.test.js server/index.js
+git add server/routes/notices.js server/tests/notice-routes.test.js
 git commit -m "$(cat <<'EOF'
-feat: 공지 목록을 고정 우선으로 정렬 + 공지 API 바디 크기 제한 상향
+feat: 공지 목록을 고정 우선으로 정렬
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF

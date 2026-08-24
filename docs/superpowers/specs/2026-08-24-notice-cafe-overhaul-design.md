@@ -21,12 +21,12 @@
 ```js
 {
   title: { type: String, required: true, trim: true, maxlength: 100 },
-  body: { type: String, required: true, maxlength: 8_000_000 }, // HTML 문자열(이미지 data URI 포함 가능)
+  body: { type: String, required: true, maxlength: 12_000_000 }, // HTML 문자열(이미지 data URI 포함 가능)
   pinned: { type: Boolean, default: false },
 }
 ```
 
-`body`는 지금처럼 평문이 아니라 **에디터가 만든 HTML 문자열**로 의미가 바뀐다. `maxlength`를 2000 → 8,000,000(약 8MB)로 올린다 — 이미지 최대 5장(장당 ≤2MB) + 텍스트를 감안한 여유치다. MongoDB 문서 자체 한도는 16MB라 여유가 있다.
+`body`는 지금처럼 평문이 아니라 **에디터가 만든 HTML 문자열**로 의미가 바뀐다. `maxlength`를 2000 → 12,000,000(약 12MB)로 올린다 — 이미지 최대 5장 × 장당 ≤2MB(base64 기준 최대 10,000,000자) + 태그/텍스트 오버헤드를 감안한 여유치다(5장 × 2MB를 8MB로 잡으면 이미지만으로 한도를 넘을 수 있어, 이미지 최대치의 합보다 넉넉하게 잡았다). MongoDB 문서 자체 한도는 16MB라 여유가 있다.
 
 **기존 데이터 호환**: 지금 프로덕션에 있는 3개 공지(`개인정보처리방침 업데이트 안내` 등)는 HTML 태그 없는 평문이다. 이걸 그대로 `dangerouslySetInnerHTML`로 렌더링해도 태그가 없으니 깨지진 않지만, 지금까지는 CSS `white-space: pre-wrap`로 `\n` 줄바꿈을 살렸는데 HTML 렌더링에서는 이 스타일이 없으면 줄바꿈이 사라진다. 렌더링 컨테이너에 `white-space: pre-line`을 계속 적용해서 해결한다(새 HTML의 `<p>`/`<br>` 같은 블록 요소는 `pre-line`이 있어도 정상 렌더링되고, 옛 평문의 `\n`도 그대로 줄바꿈으로 보인다) — 별도 데이터 마이그레이션 스크립트 불필요.
 
@@ -54,7 +54,7 @@ const SANITIZE_OPTIONS = {
 const IMAGE_SRC_RE = /<img[^>]+src="(data:image\/(?:jpeg|png|webp);base64,[^"]*)"/g;
 const MAX_IMAGES = 5;
 const MAX_IMAGE_LEN = 2_000_000; // 이미지 1장당(게시글 이미지와 동일 기준)
-const MAX_BODY_LEN = 8_000_000; // sanitize 후 전체 body
+const MAX_BODY_LEN = 12_000_000; // sanitize 후 전체 body
 
 function sanitizeAndValidateBody(rawBody) {
   const clean = sanitizeHtml(rawBody, SANITIZE_OPTIONS);
@@ -80,7 +80,7 @@ function sanitizeAndValidateBody(rawBody) {
 
 **`server/routes/notices.js`의 `GET /`**: 정렬을 `.sort({ pinned: -1, createdAt: -1 })`로 변경 — 고정 공지가 먼저, 그 안에서는 최신순, 그다음 일반 공지 최신순. `serializeNotice`에 `pinned` 필드 추가(양쪽 라우트 파일이 각자 `serializeNotice`를 갖고 있으므로 둘 다 수정).
 
-**`server/index.js`**: `express.json({ limit: "3mb" })` → `"10mb"`(공지 본문에 이미지 여러 장이 들어갈 수 있으므로 게시글 때보다 더 크게 잡는다).
+**`server/index.js`**: `/api/admin/notices` 경로 전용으로 `express.json({ limit: "15mb" })`를 추가한다(공지 본문에 이미지 여러 장이 들어갈 수 있어, `body`의 12MB 한도보다 여유 있게 잡는다).
 
 ## C. 프론트엔드 — 리치 텍스트 에디터
 
