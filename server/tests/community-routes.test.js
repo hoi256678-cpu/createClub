@@ -478,3 +478,21 @@ test("빈 제목으로 수정하려 하면 400을 반환한다", async () => {
   const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ title: "   " });
   assert.equal(res.status, 400);
 });
+
+test("100자를 넘는 제목으로 수정하려 하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
+
+  const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ title: "a".repeat(101) });
+  assert.equal(res.status, 400);
+});
+
+test("5000자를 넘는 내용으로 수정하려 하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
+
+  const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ body: "a".repeat(5001) });
+  assert.equal(res.status, 400);
+});
