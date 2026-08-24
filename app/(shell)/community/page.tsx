@@ -11,7 +11,16 @@ import { useAuthStatus } from "@/app/hooks/useAuthStatus";
 import { TOPICS, TOPIC_EMOJI } from "./mock";
 import { formatNoticeDate, formatRelativeTime } from "./time";
 import { pickPopularPosts } from "./popular";
+import NoticeEditor from "./NoticeEditor";
 import type { CommunityPost, NoticeItem } from "./types";
+
+function stripHtml(html: string) {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function firstImageSrc(html: string) {
+  return html.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? null;
+}
 
 type Tab = "best" | "all" | "notice";
 type Sort = "recent" | "likes" | "comments" | "views";
@@ -39,10 +48,12 @@ function CommunityPageContent() {
   const [creatingNotice, setCreatingNotice] = useState(false);
   const [newNoticeTitle, setNewNoticeTitle] = useState("");
   const [newNoticeBody, setNewNoticeBody] = useState("");
+  const [newNoticePinned, setNewNoticePinned] = useState(false);
   const [noticeFormError, setNoticeFormError] = useState<string | null>(null);
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
   const [editNoticeTitle, setEditNoticeTitle] = useState("");
   const [editNoticeBody, setEditNoticeBody] = useState("");
+  const [editNoticePinned, setEditNoticePinned] = useState(false);
   const [confirmDeleteNoticeId, setConfirmDeleteNoticeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,7 +78,7 @@ function CommunityPageContent() {
     setNoticeFormError(null);
     const res = await apiFetch("/api/admin/notices", {
       method: "POST",
-      body: JSON.stringify({ title: newNoticeTitle, body: newNoticeBody }),
+      body: JSON.stringify({ title: newNoticeTitle, body: newNoticeBody, pinned: newNoticePinned }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -76,6 +87,7 @@ function CommunityPageContent() {
     }
     setNewNoticeTitle("");
     setNewNoticeBody("");
+    setNewNoticePinned(false);
     setCreatingNotice(false);
     loadNotices();
   }
@@ -84,6 +96,7 @@ function CommunityPageContent() {
     setEditingNoticeId(n.id);
     setEditNoticeTitle(n.title);
     setEditNoticeBody(n.body);
+    setEditNoticePinned(n.pinned);
     setNoticeFormError(null);
   }
 
@@ -92,7 +105,7 @@ function CommunityPageContent() {
     setNoticeFormError(null);
     const res = await apiFetch(`/api/admin/notices/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ title: editNoticeTitle, body: editNoticeBody }),
+      body: JSON.stringify({ title: editNoticeTitle, body: editNoticeBody, pinned: editNoticePinned }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -209,14 +222,15 @@ function CommunityPageContent() {
                       maxLength={100}
                       className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
                     />
-                    <textarea
-                      value={newNoticeBody}
-                      onChange={(e) => setNewNoticeBody(e.target.value)}
-                      placeholder="내용"
-                      rows={4}
-                      maxLength={2000}
-                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
-                    />
+                    <NoticeEditor value={newNoticeBody} onChange={setNewNoticeBody} />
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
+                      <input
+                        type="checkbox"
+                        checked={newNoticePinned}
+                        onChange={(e) => setNewNoticePinned(e.target.checked)}
+                      />
+                      📌 상단 고정
+                    </label>
                     {noticeFormError && <p className="text-xs font-semibold text-danger">{noticeFormError}</p>}
                     <div className="flex gap-2">
                       <button
@@ -251,13 +265,15 @@ function CommunityPageContent() {
                       maxLength={100}
                       className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
                     />
-                    <textarea
-                      value={editNoticeBody}
-                      onChange={(e) => setEditNoticeBody(e.target.value)}
-                      rows={4}
-                      maxLength={2000}
-                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-primary"
-                    />
+                    <NoticeEditor value={editNoticeBody} onChange={setEditNoticeBody} />
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
+                      <input
+                        type="checkbox"
+                        checked={editNoticePinned}
+                        onChange={(e) => setEditNoticePinned(e.target.checked)}
+                      />
+                      📌 상단 고정
+                    </label>
                     {noticeFormError && <p className="text-xs font-semibold text-danger">{noticeFormError}</p>}
                     <div className="flex gap-2">
                       <button
@@ -273,10 +289,24 @@ function CommunityPageContent() {
                     </div>
                   </form>
                 ) : (
-                  <Card key={n.id} className="transition-shadow hover:shadow-card">
+                  <Card
+                    key={n.id}
+                    className={`transition-shadow hover:shadow-card ${n.pinned ? "bg-primary-xlight" : ""}`}
+                  >
                     <Link href={`/community/notice/${n.id}`} className="block cursor-pointer">
-                      <div className="text-sm font-bold text-primary-dark">공지</div>
+                      <div className="text-sm font-bold text-primary-dark">{n.pinned ? "📌 고정 공지" : "공지"}</div>
                       <div className="mt-1 font-bold text-text">{n.title}</div>
+                      <div className="mt-2 flex gap-3">
+                        <p className="line-clamp-2 flex-1 text-[13px] text-text-muted">{stripHtml(n.body)}</p>
+                        {firstImageSrc(n.body) && (
+                          // eslint-disable-next-line @next/next/no-img-element -- base64 데이터 URI
+                          <img
+                            src={firstImageSrc(n.body)!}
+                            alt=""
+                            className="h-14 w-14 flex-shrink-0 rounded-lg border border-border object-cover"
+                          />
+                        )}
+                      </div>
                       <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(n.createdAt)}</div>
                     </Link>
                     {isAdmin && (
@@ -390,6 +420,7 @@ function CommunityPageContent() {
                   href={`/community/notice/${n.id}`}
                   className="py-2 text-[13px] text-text-muted transition-colors hover:text-primary-dark"
                 >
+                  {n.pinned ? "📌 " : ""}
                   {n.title}
                 </Link>
               ))}
