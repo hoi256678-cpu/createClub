@@ -632,3 +632,24 @@ test("관리자가 PATCH로 isNotice를 false로 내리면 pinned도 함께 꺼�
   assert.equal(res.body.isNotice, false);
   assert.equal(res.body.pinned, false);
 });
+
+test("이미 공지인 글에 pinned만 보내면 isNotice는 그대로 유지되고 pinned가 반영된다", async () => {
+  const admin = await User.create({ name: "관리자", email: "admin-pinned-only@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  const adminCookie = `${COOKIE_NAME}=${token}`;
+
+  const createRes = await request(app)
+    .post("/api/community/posts")
+    .set("Cookie", adminCookie)
+    .send({ tag: "고민", title: "공지", body: "내용", isNotice: true });
+  assert.equal(createRes.body.isNotice, true);
+  assert.equal(createRes.body.pinned, false);
+
+  const res = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ pinned: true });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.isNotice, true);
+  assert.equal(res.body.pinned, true);
+});
