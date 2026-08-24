@@ -4,12 +4,18 @@ const Notice = require("../models/Notice");
 const router = express.Router();
 
 function serializeNotice(notice) {
-  return { id: notice._id.toString(), title: notice.title, body: notice.body, createdAt: notice.createdAt };
+  return {
+    id: notice._id.toString(),
+    title: notice.title,
+    body: notice.body,
+    pinned: notice.pinned,
+    createdAt: notice.createdAt,
+  };
 }
 
 router.get("/", async (req, res) => {
   try {
-    const notices = await Notice.find().sort({ createdAt: -1 });
+    const notices = await Notice.find().sort({ pinned: -1, createdAt: -1 });
     res.json(notices.map(serializeNotice));
   } catch (err) {
     console.error("공지사항 목록 조회 중 오류:", err);

@@ -67,3 +67,25 @@ test("잘못된 형식의 id로 조회해도 500이 아니라 404를 반환한�
   const res = await request(app).get("/api/community/notices/not-a-valid-id");
   assert.equal(res.status, 404);
 });
+
+test("고정된 공지는 최신순보다 먼저 온다", async () => {
+  await Notice.create({ title: "오래된 일반 공지", body: "내용1", pinned: false });
+  await new Promise((r) => setTimeout(r, 5));
+  const pinned = await Notice.create({ title: "고정 공지", body: "내용2", pinned: true });
+  await new Promise((r) => setTimeout(r, 5));
+  await Notice.create({ title: "최신 일반 공지", body: "내용3", pinned: false });
+
+  const res = await request(app).get("/api/community/notices");
+  assert.equal(res.status, 200);
+  assert.equal(res.body[0].id, pinned._id.toString());
+  assert.equal(res.body[0].pinned, true);
+  assert.equal(res.body[1].title, "최신 일반 공지");
+  assert.equal(res.body[2].title, "오래된 일반 공지");
+});
+
+test("공지 목록/상세 응답에 pinned 필드가 포함된다", async () => {
+  await Notice.create({ title: "제목", body: "내용", pinned: true });
+
+  const res = await request(app).get("/api/community/notices");
+  assert.equal(res.body[0].pinned, true);
+});
