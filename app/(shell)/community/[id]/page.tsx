@@ -73,6 +73,10 @@ export default function CommunityPostPage() {
       return;
     }
     const res = await apiFetch(`/api/community/posts/${post.id}`, { method: "DELETE" });
+    if (res.status === 401) {
+      router.push(loginHref(`/community/${params.id}`));
+      return;
+    }
     if (res.ok) {
       router.push("/community");
     }
