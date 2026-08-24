@@ -129,7 +129,7 @@ export default function CommunityPostPage() {
         <Card>
           <div className="mb-3 flex gap-2">
             <span className="rounded-md bg-primary-light px-2.5 py-1 text-[11px] font-bold text-primary-dark">
-              {post.tag}
+              {post.isNotice ? (post.pinned ? "📌 고정 공지" : "공지") : post.tag}
             </span>
             {post.likeCount >= 15 && (
               <span className="rounded-md bg-[#fff0f0] px-2.5 py-1 text-[11px] font-bold text-[#e07b8b]">🔥 인기</span>
@@ -170,7 +170,10 @@ export default function CommunityPostPage() {
               className="mb-4 max-h-[480px] w-full rounded-xl border border-border object-contain"
             />
           )}
-          <div className="whitespace-pre-wrap text-[15px] leading-[1.85] text-text-2">{post.body}</div>
+          <div
+            className="rich-body text-[15px] leading-[1.85] text-text-2"
+            dangerouslySetInnerHTML={{ __html: post.body }}
+          />
 
           <div className="my-6 flex justify-center gap-3 border-y border-border py-6">
             <button
