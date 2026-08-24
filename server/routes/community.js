@@ -1,5 +1,6 @@
 const express = require("express");
 const Post = require("../models/Post");
+const User = require("../models/User");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -19,6 +20,7 @@ function serializePost(post, userId) {
     title: post.title,
     body: post.body,
     image: post.image ?? null,
+    isMine: userId ? post.author?._id?.toString() === userId : false,
     authorName: post.author?.name ?? "(탈퇴한 회원)",
     authorRole: authorLabel(post.author),
     createdAt: post.createdAt,
@@ -28,6 +30,14 @@ function serializePost(post, userId) {
     likedByMe: userId ? post.likedBy.some((id) => id.toString() === userId) : false,
     savedByMe: userId ? post.savedBy.some((id) => id.toString() === userId) : false,
   };
+}
+
+async function canModifyPost(req, post) {
+  if (post.author.toString() === req.user.id) {
+    return true;
+  }
+  const requester = await User.findById(req.user.id);
+  return requester?.role === "admin";
 }
 
 function serializeComment(comment) {
@@ -107,6 +117,54 @@ router.post("/posts", requireAuth, async (req, res) => {
     res.status(201).json(serializePost(post, req.user.id));
   } catch (err) {
     console.error("게시글 작성 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
+router.patch("/posts/:id", requireAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+    if (!(await canModifyPost(req, post))) {
+      return res.status(403).json({ error: "수정 권한이 없어요" });
+    }
+
+    const { tag, title, body } = req.body || {};
+    if (typeof tag === "string") {
+      if (!tag.trim()) {
+        return res.status(400).json({ error: "태그를 선택해주세요" });
+      }
+      post.tag = tag;
+    }
+    if (typeof title === "string") {
+      if (!title.trim()) {
+        return res.status(400).json({ error: "제목을 입력해주세요" });
+      }
+      if (title.trim().length > 100) {
+        return res.status(400).json({ error: "제목은 100자를 넘을 수 없어요" });
+      }
+      post.title = title.trim();
+    }
+    if (typeof body === "string") {
+      if (!body.trim()) {
+        return res.status(400).json({ error: "내용을 입력해주세요" });
+      }
+      if (body.trim().length > 5000) {
+        return res.status(400).json({ error: "내용은 5000자를 넘을 수 없어요" });
+      }
+      post.body = body.trim();
+    }
+
+    await post.save();
+    await post.populate("author", "name role");
+    res.json(serializePost(post, req.user.id));
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+    console.error("게시글 수정 중 오류:", err);
     res.status(500).json({ error: "서버 오류가 발생했습니다" });
   }
 });

@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 const mongoose = require("mongoose");
 const request = require("supertest");
+const User = require("../models/User");
+const { signToken, COOKIE_NAME } = require("../lib/token");
 
 process.env.JWT_SECRET = "test-secret";
 process.env.FRONTEND_URL = "http://localhost:3000";
@@ -406,4 +408,73 @@ test("내가 쓴 글/저장한 글 목록은 이미지를 제외해 대역폭을
   const listRes = await request(app).get("/api/community/posts");
   assert.equal(listRes.status, 200);
   assert.equal(listRes.body[0].image, validImage);
+});
+
+async function createAdminCookie() {
+  const admin = await User.create({ name: "관리자", email: "admin@test.com", passwordHash: "x", role: "admin" });
+  const token = signToken({ id: admin._id.toString(), role: "admin" });
+  return `${COOKIE_NAME}=${token}`;
+}
+
+test("본인 게시글을 수정하면 반영된다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "원본 내용" });
+
+  const res = await agent
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .send({ title: "수정됨", body: "수정된 내용" });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.title, "수정됨");
+  assert.equal(res.body.body, "수정된 내용");
+  assert.equal(res.body.tag, "고민");
+  assert.equal(res.body.isMine, true);
+});
+
+test("다른 사람의 게시글을 수정하려 하면 403을 반환한다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
+
+  const otherAgent = request.agent(app);
+  await signup(otherAgent, { email: "other@test.com" });
+  const res = await otherAgent.patch(`/api/community/posts/${createRes.body.id}`).send({ title: "수정 시도" });
+  assert.equal(res.status, 403);
+});
+
+test("관리자는 다른 사람의 게시글도 수정할 수 있다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author2@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
+
+  const adminCookie = await createAdminCookie();
+  const res = await request(app)
+    .patch(`/api/community/posts/${createRes.body.id}`)
+    .set("Cookie", adminCookie)
+    .send({ title: "관리자가 수정함" });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.title, "관리자가 수정함");
+  assert.equal(res.body.isMine, false);
+});
+
+test("비로그인 상태로 게시글을 수정하려 하면 401을 반환한다", async () => {
+  const res = await request(app).patch("/api/community/posts/000000000000000000000000").send({ title: "x" });
+  assert.equal(res.status, 401);
+});
+
+test("존재하지 않는 게시글을 수정하려 하면 404를 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await agent.patch(`/api/community/posts/${missingId}`).send({ title: "x" });
+  assert.equal(res.status, 404);
+});
+
+test("빈 제목으로 수정하려 하면 400을 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "원본", body: "내용" });
+
+  const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ title: "   " });
+  assert.equal(res.status, 400);
 });
