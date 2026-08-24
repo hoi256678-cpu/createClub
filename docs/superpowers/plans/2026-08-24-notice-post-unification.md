@@ -29,11 +29,12 @@
 - Modify: `server/models/Post.js`
 - Modify: `server/routes/community.js`
 - Modify: `server/tests/community-routes.test.js`
+- Modify: `server/index.js`
 
 **Interfaces:**
-- Produces: `Post.isNotice: boolean`(기본 `false`), `Post.pinned: boolean`(기본 `false`), `Post.body` maxlength 5000→12,000,000. `POST /posts`/`PATCH /posts/:id`가 본문을 sanitize-html로 걸러내고(스크립트/위험 스킴 제거, 이미지 개수/용량 검증) 저장하며, 관리자에 한해 `isNotice`/`pinned`를 반영한다. `serializePost`에 `isNotice`, `pinned` 필드 추가.
+- Produces: `Post.isNotice: boolean`(기본 `false`), `Post.pinned: boolean`(기본 `false`), `Post.body` maxlength 5000→12,000,000. `POST /posts`/`PATCH /posts/:id`가 본문을 sanitize-html로 걸러내고(스크립트/위험 스킴 제거, 이미지 개수/용량 검증) 저장하며, 관리자에 한해 `isNotice`/`pinned`를 반영한다. `serializePost`에 `isNotice`, `pinned` 필드 추가. `/api/community/posts` 요청 바디 크기 제한을 15mb로 올린다(이 태스크 자신의 12MB 본문 한도 테스트가 실제로 라우트까지 도달하려면 필요 — 기존 3mb 제한으로는 큰 본문이 body-parser에서 먼저 막힌다).
 - 이 태스크가 끝나면 `image` 단독 필드로 이미지를 올리는 옛 방식은 더 이상 받지 않는다(스키마 필드 자체는 과거 글 표시를 위해 남아 있음).
-- Task 3(프론트 에디터/폼)이 이 API를 그대로 쓴다.
+- Task 3(프론트 에디터/폼)이 이 API를 그대로 쓴다. Task 2는 더 이상 이 바디 크기 제한을 건드리지 않는다(이미 여기서 끝냈으므로) — 공지 전용 `/api/admin/notices` 제한 줄 삭제만 담당한다.
 
 - [ ] **Step 1: 실패하는 테스트 작성 — 옛 단독 이미지 테스트 정리 + 새 검증 테스트 추가**
 
@@ -670,6 +671,22 @@ router.patch("/posts/:id", requireAuth, async (req, res) => {
 
 로 교체한다.
 
+- [ ] **Step 4.5: `index.js`에 `/api/community/posts` 바디 크기 제한 상향**
+
+`server/index.js`의:
+
+```js
+app.use("/api/community/posts", express.json({ limit: "3mb" }));
+```
+
+를:
+
+```js
+app.use("/api/community/posts", express.json({ limit: "15mb" }));
+```
+
+로 교체한다. (다음 스텝의 12,000,000자 본문 한도 테스트가 실제로 라우트 핸들러까지 도달하려면 이 시점에 필요하다 — 기존 3mb 제한으로는 큰 본문이 body-parser 단계에서 413으로 먼저 막힌다.)
+
 - [ ] **Step 5: 테스트 실행해 통과 확인**
 
 ```bash
@@ -687,7 +704,7 @@ cd server && node --test
 Expected: 전부 PASS(이 시점엔 `notice-routes.test.js`/`admin-notices-routes.test.js`가 아직 남아있고 그대로 통과해야 한다 — Task 2에서 삭제한다).
 
 ```bash
-git add server/models/Post.js server/routes/community.js server/tests/community-routes.test.js
+git add server/models/Post.js server/routes/community.js server/tests/community-routes.test.js server/index.js
 git commit -m "$(cat <<'EOF'
 feat: 게시글 본문 HTML sanitize + isNotice/pinned 필드 추가
 
@@ -695,7 +712,8 @@ feat: 게시글 본문 HTML sanitize + isNotice/pinned 필드 추가
 게시글 작성/수정 API로 그대로 이식한다. 관리자만 게시글을 공지로
 등록/고정할 수 있고, 고정은 공지 상태일 때만 유지된다. 이제 단독
 image 필드로 새 이미지를 올리는 옛 방식은 받지 않는다(과거 게시글
-표시를 위해 스키마 필드는 유지).
+표시를 위해 스키마 필드는 유지). /api/community/posts 바디 크기
+제한을 15mb로 올려 12MB 본문 한도가 실제로 검증되게 한다.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
@@ -713,7 +731,7 @@ EOF
 
 **Interfaces:**
 - Consumes: Task 1이 이미 sanitize 로직을 `community.js`로 옮겨뒀으므로, 이 태스크는 이제 안 쓰는 파일만 정리한다.
-- Produces: `/api/community/notices`, `/api/admin/notices` 경로 완전 삭제. `/api/community/posts`(POST/PATCH 공통) 바디 크기 제한이 리치 텍스트+이미지를 감당할 수 있도록 커진다.
+- Produces: `/api/community/notices`, `/api/admin/notices` 경로 완전 삭제(공지 전용 바디 크기 제한 줄도 함께 제거). `/api/community/posts`의 15mb 제한은 Task 1에서 이미 적용됐으므로 이 태스크는 건드리지 않는다.
 
 - [ ] **Step 1: 공지 전용 백엔드 파일 삭제**
 
@@ -743,7 +761,7 @@ const { sanitizeBody } = require("../lib/sanitizeHtml");
 
 로 교체한다.
 
-- [ ] **Step 4: `index.js`에서 공지 라우터 제거 + 게시글 바디 크기 제한 상향**
+- [ ] **Step 4: `index.js`에서 공지 라우터 제거**
 
 `server/index.js`의:
 
@@ -763,10 +781,10 @@ const moodRouter = require("./routes/mood");
 
 로 교체한다.
 
-`server/index.js`의:
+`server/index.js`의(Task 1에서 이미 `/api/community/posts` 줄을 15mb로 올려뒀으므로, 여기서는 `/api/admin/notices` 줄만 삭제한다):
 
 ```js
-app.use("/api/community/posts", express.json({ limit: "3mb" }));
+app.use("/api/community/posts", express.json({ limit: "15mb" }));
 app.use("/api/admin/notices", express.json({ limit: "15mb" }));
 app.use(express.json());
 ```
@@ -778,7 +796,7 @@ app.use("/api/community/posts", express.json({ limit: "15mb" }));
 app.use(express.json());
 ```
 
-로 교체한다. (게시글 본문에 이제 이미지 최대 5장이 들어갈 수 있어 공지 때 쓰던 15mb 제한을 그대로 가져온다 — 공지 전용 경로는 없어지므로 그 줄은 삭제.)
+로 교체한다. (공지 전용 경로가 없어지므로 그 줄만 삭제.)
 
 `server/index.js`의:
 
