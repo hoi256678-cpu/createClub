@@ -4,6 +4,7 @@ export type CommunityPost = {
   title: string;
   body: string;
   image: string | null;
+  isMine: boolean;
   authorName: string;
   authorRole: string;
   createdAt: string;
