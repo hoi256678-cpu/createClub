@@ -21,6 +21,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use("/api/community/posts", express.json({ limit: "3mb" }));
+app.use("/api/admin/notices", express.json({ limit: "15mb" }));
 app.use(express.json());
 app.use(cookieParser());
 

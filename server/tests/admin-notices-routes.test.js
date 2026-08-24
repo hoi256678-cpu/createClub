@@ -87,13 +87,96 @@ test("제목이나 내용이 비어있으면 400을 반환한다", async () => {
   assert.equal(res.status, 400);
 });
 
-test("내용이 2000자를 초과하면 400을 반환한다", async () => {
+test("내용이 12,000,000자를 초과하면 400을 반환한다", async () => {
   const admin = await createAdmin();
   const res = await request(app)
     .post("/api/admin/notices")
     .set("Cookie", adminCookie(admin))
-    .send({ title: "제목", body: "a".repeat(2001) });
+    .send({ title: "제목", body: "a".repeat(12_000_001) });
   assert.equal(res.status, 400);
+});
+
+test("스크립트 태그는 저장 전 제거된다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: '<p>안전한 내용</p><script>alert(1)</script>' });
+  assert.equal(res.status, 201);
+  assert.ok(res.body.body.includes("안전한 내용"));
+  assert.ok(!res.body.body.includes("script"));
+  assert.ok(!res.body.body.includes("alert"));
+});
+
+test("javascript: 링크는 저장 전 제거된다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: '<p><a href="javascript:alert(1)">클릭</a></p>' });
+  assert.equal(res.status, 201);
+  assert.ok(!res.body.body.includes("javascript:"));
+});
+
+test("이미지가 5장을 초과하면 400을 반환한다", async () => {
+  const admin = await createAdmin();
+  const img = '<img src="data:image/jpeg;base64,aGVsbG8=">';
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: img.repeat(6) });
+  assert.equal(res.status, 400);
+});
+
+test("이미지 하나가 2MB를 초과하면 400을 반환한다", async () => {
+  const admin = await createAdmin();
+  const tooLargeImage = `<img src="data:image/jpeg;base64,${"a".repeat(2_000_001)}">`;
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: tooLargeImage });
+  assert.equal(res.status, 400);
+});
+
+test("이미지 mime 타입이 올바르지 않으면 400을 반환한다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: '<img src="data:text/html;base64,PHNjcmlwdD4=">' });
+  assert.equal(res.status, 400);
+});
+
+test("pinned: true로 작성하면 고정된 공지로 저장된다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "고정 공지", body: "내용", pinned: true });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.pinned, true);
+});
+
+test("작성 시 pinned를 생략하면 기본값 false다", async () => {
+  const admin = await createAdmin();
+  const res = await request(app)
+    .post("/api/admin/notices")
+    .set("Cookie", adminCookie(admin))
+    .send({ title: "제목", body: "내용" });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.pinned, false);
+});
+
+test("admin이 pinned를 수정하면 반영된다", async () => {
+  const admin = await createAdmin();
+  const notice = await Notice.create({ title: "원본", body: "원본 내용", pinned: false });
+
+  const res = await request(app)
+    .patch(`/api/admin/notices/${notice._id}`)
+    .set("Cookie", adminCookie(admin))
+    .send({ pinned: true });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.pinned, true);
 });
 
 test("admin이 공지를 수정하면 반영된다", async () => {
