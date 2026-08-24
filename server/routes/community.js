@@ -2,7 +2,7 @@ const express = require("express");
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
-const { sanitizeBody } = require("../lib/sanitizeNotice");
+const { sanitizeBody } = require("../lib/sanitizeHtml");
 
 const router = express.Router();
 

@@ -11,8 +11,6 @@ const testRouter = require("./routes/test");
 const adminRouter = require("./routes/admin");
 const notificationsRouter = require("./routes/notifications");
 const moodRouter = require("./routes/mood");
-const noticesRouter = require("./routes/notices");
-const adminNoticesRouter = require("./routes/adminNotices");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -21,7 +19,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use("/api/community/posts", express.json({ limit: "15mb" }));
-app.use("/api/admin/notices", express.json({ limit: "15mb" }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -41,8 +38,6 @@ app.use("/api/test", testRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/mood", moodRouter);
-app.use("/api/community/notices", noticesRouter);
-app.use("/api/admin/notices", adminNoticesRouter);
 
 async function start() {
   if (!MONGODB_URI) {
