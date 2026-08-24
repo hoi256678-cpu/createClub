@@ -254,6 +254,26 @@ router.post("/posts/:id/save", requireAuth, async (req, res) => {
   }
 });
 
+router.delete("/posts/:id", requireAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+    if (!(await canModifyPost(req, post))) {
+      return res.status(403).json({ error: "삭제 권한이 없어요" });
+    }
+    await Post.findByIdAndDelete(req.params.id);
+    res.json({});
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
+    }
+    console.error("게시글 삭제 중 오류:", err);
+    res.status(500).json({ error: "서버 오류가 발생했습니다" });
+  }
+});
+
 router.get("/my-posts", requireAuth, async (req, res) => {
   try {
     // 마이페이지 목록은 이미지를 표시하지 않으므로 대역폭 절약을 위해 이미지 필드를 제외한다

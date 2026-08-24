@@ -496,3 +496,55 @@ test("5000자를 넘는 내용으로 수정하려 하면 400을 반환한다", a
   const res = await agent.patch(`/api/community/posts/${createRes.body.id}`).send({ body: "a".repeat(5001) });
   assert.equal(res.status, 400);
 });
+
+test("본인 게시글을 삭제하면 목록에서 사라진다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "지울 글", body: "내용" });
+
+  const res = await agent.delete(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(res.status, 200);
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.body.length, 0);
+});
+
+test("다른 사람의 게시글을 삭제하려 하면 403을 반환한다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author3@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "글", body: "내용" });
+
+  const otherAgent = request.agent(app);
+  await signup(otherAgent, { email: "other2@test.com" });
+  const res = await otherAgent.delete(`/api/community/posts/${createRes.body.id}`);
+  assert.equal(res.status, 403);
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.body.length, 1);
+});
+
+test("관리자는 다른 사람의 게시글도 삭제할 수 있다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author4@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "글", body: "내용" });
+
+  const adminCookie = await createAdminCookie();
+  const res = await request(app).delete(`/api/community/posts/${createRes.body.id}`).set("Cookie", adminCookie);
+  assert.equal(res.status, 200);
+
+  const listRes = await request(app).get("/api/community/posts");
+  assert.equal(listRes.body.length, 0);
+});
+
+test("비로그인 상태로 게시글을 삭제하려 하면 401을 반환한다", async () => {
+  const res = await request(app).delete("/api/community/posts/000000000000000000000000");
+  assert.equal(res.status, 401);
+});
+
+test("존재하지 않는 게시글을 삭제하려 하면 404를 반환한다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const missingId = new mongoose.Types.ObjectId().toString();
+  const res = await agent.delete(`/api/community/posts/${missingId}`);
+  assert.equal(res.status, 404);
+});
