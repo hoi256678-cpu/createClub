@@ -19,6 +19,7 @@ export default function CommunityPostPage() {
   const { refresh: refreshPostCounts } = usePostCounts();
   const [post, setPost] = useState<CommunityPostDetail | null | undefined>(undefined);
   const [comment, setComment] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     apiFetch(`/api/community/posts/${params.id}`)
@@ -63,6 +64,19 @@ export default function CommunityPostPage() {
     const data = (await res.json()) as { saved: boolean };
     setPost({ ...post, savedByMe: data.saved });
     refreshPostCounts();
+  }
+
+  async function handleDelete() {
+    if (!post) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    const res = await apiFetch(`/api/community/posts/${post.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/community");
+    }
+    setConfirmDelete(false);
   }
 
   async function submitComment() {
@@ -116,7 +130,29 @@ export default function CommunityPostPage() {
               <span className="rounded-md bg-[#fff0f0] px-2.5 py-1 text-[11px] font-bold text-[#e07b8b]">🔥 인기</span>
             )}
           </div>
-          <h1 className="mb-3 text-2xl font-black text-text">{post.title}</h1>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-black text-text">{post.title}</h1>
+            {(post.isMine || (auth.phase === "in" && auth.role === "admin")) && (
+              <div className="flex flex-shrink-0 gap-1.5">
+                <Link
+                  href={`/community/${post.id}/edit`}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-text-muted"
+                >
+                  수정
+                </Link>
+                <button
+                  onClick={handleDelete}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${
+                    confirmDelete
+                      ? "border-danger bg-[#fff0f0] text-danger"
+                      : "border-danger text-danger hover:bg-[#fff0f0]"
+                  }`}
+                >
+                  {confirmDelete ? "정말 삭제할까요?" : "삭제"}
+                </button>
+              </div>
+            )}
+          </div>
           <div className="mb-5 border-b border-border pb-4 text-[13px] text-text-muted">
             {post.authorName} · {post.authorRole} · {formatRelativeTime(post.createdAt)} · 조회 {post.views}
           </div>
