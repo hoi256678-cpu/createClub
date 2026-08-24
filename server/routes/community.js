@@ -256,6 +256,9 @@ router.post("/posts/:id/save", requireAuth, async (req, res) => {
 
 router.delete("/posts/:id", requireAuth, async (req, res) => {
   try {
+    // 권한 확인 전에는 절대 삭제하지 않는다: findById로 먼저 조회해 canModifyPost를
+    // 통과한 뒤에만 findByIdAndDelete를 호출해야, 권한 없는 요청이 삭제를 실행한 뒤
+    // 뒤늦게 403을 받는 상황(=이미 데이터가 지워진 뒤의 거부)을 막을 수 있다.
     const post = await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ error: "게시글을 찾을 수 없어요" });
