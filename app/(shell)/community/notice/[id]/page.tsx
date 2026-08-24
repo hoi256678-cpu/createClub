@@ -42,10 +42,13 @@ export default function NoticeDetailPage() {
         ← 커뮤니티로 돌아가기
       </Link>
       <Card>
-        <div className="text-sm font-bold text-primary-dark">공지</div>
+        <div className="text-sm font-bold text-primary-dark">{notice.pinned ? "📌 고정 공지" : "공지"}</div>
         <h1 className="mt-1 text-lg font-extrabold text-text">{notice.title}</h1>
         <div className="mt-1 text-xs text-text-faint">{formatNoticeDate(notice.createdAt)}</div>
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-text-2">{notice.body}</p>
+        <div
+          className="notice-body mt-4 text-sm leading-relaxed text-text-2"
+          dangerouslySetInnerHTML={{ __html: notice.body }}
+        />
       </Card>
     </div>
   );

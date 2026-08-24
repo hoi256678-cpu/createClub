@@ -58,3 +58,31 @@ body {
     font-size: 16px;
   }
 }
+
+/*
+ * 공지사항 본문(NoticeEditor가 만든 HTML, 서버 sanitize-html 통과)을 렌더링하는 컨테이너.
+ * white-space: pre-line은 마이그레이션 전 평문(\n 줄바꿈만 있던) 공지도 그대로 보이게 해준다 —
+ * 새 HTML의 p/br 같은 블록 요소는 pre-line이 있어도 정상 렌더링된다.
+ */
+.notice-body {
+  white-space: pre-line;
+}
+.notice-body p {
+  margin-bottom: 0.75em;
+}
+.notice-body p:last-child {
+  margin-bottom: 0;
+}
+.notice-body img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+  margin: 0.5em 0;
+}
+.notice-body a {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+.notice-body ul,
+.notice-body ol {
+  margin: 0.5em 0 0.5em 1.25em;
+}
