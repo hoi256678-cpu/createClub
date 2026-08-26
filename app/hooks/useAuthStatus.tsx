@@ -12,9 +12,13 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api";
 
-export type NotificationPrefs = { chatMessages: boolean; systemAlerts: boolean };
+export type NotificationPrefs = { chatMessages: boolean; systemAlerts: boolean; communityActivity: boolean };
 
-export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { chatMessages: true, systemAlerts: true };
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  chatMessages: true,
+  systemAlerts: true,
+  communityActivity: true,
+};
 
 export type LoggedInUser = {
   name: string;

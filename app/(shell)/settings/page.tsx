@@ -114,6 +114,11 @@ export default function SettingsPage() {
             onChange={(v) => updateNotificationPrefs({ chatMessages: v })}
           />
           <ToggleRow
+            label="댓글·좋아요 알림"
+            on={auth.notificationPrefs.communityActivity}
+            onChange={(v) => updateNotificationPrefs({ communityActivity: v })}
+          />
+          <ToggleRow
             label="신고 처리 알림"
             on={auth.notificationPrefs.systemAlerts}
             onChange={(v) => updateNotificationPrefs({ systemAlerts: v })}

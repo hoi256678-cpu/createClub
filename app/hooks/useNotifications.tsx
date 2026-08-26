@@ -30,6 +30,7 @@ export type NotificationItem = {
 
 type ServerNotification = {
   id: string;
+  type: "report_reviewed" | "post_commented" | "post_liked";
   icon: string;
   title: string;
   desc: string;
@@ -135,14 +136,33 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (notificationPrefs.chatMessages) {
       rooms.filter(isRoomUnread).forEach((r) => markRoomRead(r.id, r.lastMessageAt));
     }
-    if (notificationPrefs.systemAlerts) {
+    // 서버 알림은 신고처리(systemAlerts)/댓글·좋아요(communityActivity) 두 종류가 한 목록에 섞여 있어서,
+    // read-all(전체 일괄 읽음) 대신 지금 화면에 보이는(=꺼져있지 않은) 항목만 골라 개별로 읽음 처리한다.
+    const visibleUnreadIds = notifications
+      .filter((n) =>
+        n.type === "report_reviewed" ? notificationPrefs.systemAlerts : notificationPrefs.communityActivity,
+      )
+      .filter((n) => n.unread)
+      .map((n) => n.id);
+    if (visibleUnreadIds.length > 0) {
       generationRef.current += 1;
-      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-      apiFetch("/api/notifications/read-all", { method: "POST" })
-        .catch(() => {})
-        .finally(() => refresh());
+      setNotifications((prev) =>
+        prev.map((n) => (visibleUnreadIds.includes(n.id) ? { ...n, unread: false } : n)),
+      );
+      Promise.all(
+        visibleUnreadIds.map((id) => apiFetch(`/api/notifications/${id}/read`, { method: "POST" }).catch(() => {})),
+      ).finally(() => refresh());
     }
-  }, [rooms, isRoomUnread, markRoomRead, notificationPrefs.chatMessages, notificationPrefs.systemAlerts, refresh]);
+  }, [
+    rooms,
+    isRoomUnread,
+    markRoomRead,
+    notifications,
+    notificationPrefs.chatMessages,
+    notificationPrefs.systemAlerts,
+    notificationPrefs.communityActivity,
+    refresh,
+  ]);
 
   const deleteNotification = useCallback(
     (id: string) => {
@@ -180,8 +200,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const serverItems = useMemo<NotificationItem[]>(
     () =>
-      notificationPrefs.systemAlerts ? notifications.map((n) => ({ ...n, time: formatRelativeTime(n.time) })) : [],
-    [notifications, notificationPrefs.systemAlerts],
+      notifications
+        .filter((n) =>
+          n.type === "report_reviewed" ? notificationPrefs.systemAlerts : notificationPrefs.communityActivity,
+        )
+        .map((n) => ({ ...n, time: formatRelativeTime(n.time) })),
+    [notifications, notificationPrefs.systemAlerts, notificationPrefs.communityActivity],
   );
 
   const items = useMemo<NotificationItem[]>(() => [...chatItems, ...serverItems], [chatItems, serverItems]);

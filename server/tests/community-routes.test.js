@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const request = require("supertest");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Notification = require("../models/Notification");
 const { signToken, COOKIE_NAME } = require("../lib/token");
 
 process.env.JWT_SECRET = "test-secret";
@@ -194,6 +195,70 @@ test("비로그인 상태로 좋아요를 누르면 401을 반환한다", async 
 
   const res = await request(app).post(`/api/community/posts/${createRes.body.id}/like`);
   assert.equal(res.status, 401);
+});
+
+test("다른 사람 글에 댓글을 달면 글쓴이에게 post_commented 알림이 생긴다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const commenterAgent = request.agent(app);
+  await signup(commenterAgent, { email: "commenter@test.com", name: "댓글러" });
+  await commenterAgent.post(`/api/community/posts/${createRes.body.id}/comments`).send({ text: "힘내세요" });
+
+  const notifications = await Notification.find();
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].type, "post_commented");
+  assert.match(notifications[0].desc, /댓글러/);
+  assert.equal(notifications[0].href, `/community/${createRes.body.id}`);
+});
+
+test("본인 글에 본인이 댓글을 달면 알림이 생기지 않는다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  await agent.post(`/api/community/posts/${createRes.body.id}/comments`).send({ text: "셀프 댓글" });
+
+  assert.equal(await Notification.countDocuments(), 0);
+});
+
+test("다른 사람 글에 좋아요를 누르면 글쓴이에게 post_liked 알림이 생긴다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const likerAgent = request.agent(app);
+  await signup(likerAgent, { email: "liker@test.com", name: "좋아요러" });
+  await likerAgent.post(`/api/community/posts/${createRes.body.id}/like`);
+
+  const notifications = await Notification.find();
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].type, "post_liked");
+  assert.match(notifications[0].desc, /좋아요러/);
+});
+
+test("좋아요를 취소할 때는 알림이 추가로 생기지 않는다", async () => {
+  const authorAgent = request.agent(app);
+  await signup(authorAgent, { email: "author@test.com" });
+  const createRes = await authorAgent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  const likerAgent = request.agent(app);
+  await signup(likerAgent, { email: "liker@test.com" });
+  await likerAgent.post(`/api/community/posts/${createRes.body.id}/like`); // 좋아요: 알림 1건 생성
+  await likerAgent.post(`/api/community/posts/${createRes.body.id}/like`); // 좋아요 취소: 추가 알림 없어야 함
+
+  assert.equal(await Notification.countDocuments(), 1);
+});
+
+test("본인 글에 본인이 좋아요를 눌러도 알림이 생기지 않는다", async () => {
+  const agent = request.agent(app);
+  await signup(agent);
+  const createRes = await agent.post("/api/community/posts").send({ tag: "고민", title: "제목", body: "내용" });
+
+  await agent.post(`/api/community/posts/${createRes.body.id}/like`);
+
+  assert.equal(await Notification.countDocuments(), 0);
 });
 
 test("내가 쓴 글 개수만 정확히 센다", async () => {

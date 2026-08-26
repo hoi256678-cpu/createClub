@@ -70,7 +70,7 @@ test("로그인 성공 시 200과 쿠키를 반환한다", async () => {
   assert.deepEqual(res.body, {
     name: "홍길동",
     role: "counselor",
-    notificationPrefs: { chatMessages: true, systemAlerts: true },
+    notificationPrefs: { chatMessages: true, systemAlerts: true, communityActivity: true },
   });
   assert.ok(res.headers["set-cookie"][0].includes("somit_token="));
 });
@@ -88,7 +88,7 @@ test("로그인 응답에는 저장된 알림 설정이 반영된다", async () 
     .send({ email: "hong@test.com", password: "1234" });
 
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body.notificationPrefs, { chatMessages: false, systemAlerts: true });
+  assert.deepEqual(res.body.notificationPrefs, { chatMessages: false, systemAlerts: true, communityActivity: true });
 });
 
 test("잘못된 비밀번호로 로그인하면 401과 통일된 메시지를 반환한다", async () => {
@@ -125,7 +125,7 @@ test("로그인한 상태에서 /me는 사용자 정보와 기본 알림 설정�
   assert.deepEqual(res.body, {
     name: "홍길동",
     role: "counselor",
-    notificationPrefs: { chatMessages: true, systemAlerts: true },
+    notificationPrefs: { chatMessages: true, systemAlerts: true, communityActivity: true },
   });
 });
 
@@ -229,10 +229,10 @@ test("알림 설정을 변경하면 즉시 반영되고 /me에서도 확인된�
 
   const patchRes = await agent.patch("/api/auth/notification-prefs").send({ chatMessages: false });
   assert.equal(patchRes.status, 200);
-  assert.deepEqual(patchRes.body, { chatMessages: false, systemAlerts: true });
+  assert.deepEqual(patchRes.body, { chatMessages: false, systemAlerts: true, communityActivity: true });
 
   const meRes = await agent.get("/api/auth/me");
-  assert.deepEqual(meRes.body.notificationPrefs, { chatMessages: false, systemAlerts: true });
+  assert.deepEqual(meRes.body.notificationPrefs, { chatMessages: false, systemAlerts: true, communityActivity: true });
 });
 
 test("로그인하지 않은 상태에서 알림 설정을 변경하면 401을 반환한다", async () => {

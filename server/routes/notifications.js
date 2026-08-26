@@ -7,6 +7,7 @@ const router = express.Router();
 function serializeNotification(n) {
   return {
     id: n._id.toString(),
+    type: n.type,
     icon: n.icon,
     title: n.title,
     desc: n.desc,

@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const notificationSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    type: { type: String, required: true, enum: ["report_reviewed"] },
+    type: { type: String, required: true, enum: ["report_reviewed", "post_commented", "post_liked"] },
     icon: { type: String, required: true },
     title: { type: String, required: true },
     desc: { type: String, required: true },

@@ -105,13 +105,14 @@ router.get("/me", requireAuth, async (req, res) => {
 
 router.patch("/notification-prefs", requireAuth, async (req, res) => {
   try {
-    const { chatMessages, systemAlerts } = req.body || {};
+    const { chatMessages, systemAlerts, communityActivity } = req.body || {};
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(401).json({ error: "로그인이 필요합니다" });
     }
     if (typeof chatMessages === "boolean") user.notificationPrefs.chatMessages = chatMessages;
     if (typeof systemAlerts === "boolean") user.notificationPrefs.systemAlerts = systemAlerts;
+    if (typeof communityActivity === "boolean") user.notificationPrefs.communityActivity = communityActivity;
     await user.save();
     res.json(user.notificationPrefs);
   } catch (err) {

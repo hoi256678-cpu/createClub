@@ -1,6 +1,7 @@
 const express = require("express");
 const Post = require("../models/Post");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const { requireAuth, optionalAuth } = require("../middleware/auth");
 const { sanitizeBody } = require("../lib/sanitizeHtml");
 
@@ -91,6 +92,21 @@ async function canModifyPost(req, post) {
     return isAdmin;
   }
   return authorId === req.user.id || isAdmin;
+}
+
+function truncateTitle(title) {
+  return title.length > 24 ? `${title.slice(0, 24)}...` : title;
+}
+
+// 글쓴이 본인이 자기 글에 댓글/좋아요를 남긴 경우는 알림을 보내지 않는다.
+async function notifyPostAuthor({ post, actorId, type, icon, title, desc }) {
+  const authorId = (post.author?._id ?? post.author)?.toString();
+  if (!authorId || authorId === actorId) return;
+  try {
+    await Notification.create({ user: authorId, type, icon, title, desc, href: `/community/${post._id}` });
+  } catch (err) {
+    console.error(`${type} 알림 생성 중 오류:`, err);
+  }
 }
 
 function serializeComment(comment) {
@@ -285,6 +301,16 @@ router.post("/posts/:id/comments", requireAuth, async (req, res) => {
     await post.save();
     await post.populate("comments.author", "name role");
 
+    const newComment = post.comments[post.comments.length - 1];
+    await notifyPostAuthor({
+      post,
+      actorId: req.user.id,
+      type: "post_commented",
+      icon: "💬",
+      title: "새 댓글이 달렸어요",
+      desc: `${newComment.author?.name ?? "누군가"}님이 "${truncateTitle(post.title)}"에 댓글을 남겼어요`,
+    });
+
     res.status(201).json(post.comments.map(serializeComment));
   } catch (err) {
     if (err.name === "CastError") {
@@ -312,6 +338,18 @@ router.post("/posts/:id/like", requireAuth, async (req, res) => {
       liked = false;
     }
     await post.save();
+
+    if (liked) {
+      const actor = await User.findById(req.user.id).select("name");
+      await notifyPostAuthor({
+        post,
+        actorId: req.user.id,
+        type: "post_liked",
+        icon: "👍",
+        title: "글에 좋아요를 받았어요",
+        desc: `${actor?.name ?? "누군가"}님이 "${truncateTitle(post.title)}"을 좋아해요`,
+      });
+    }
 
     res.json({ liked, likeCount: post.likedBy.length });
   } catch (err) {
