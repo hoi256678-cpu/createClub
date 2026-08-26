@@ -30,7 +30,7 @@ export default function CommunityPage() {
 
 function CommunityPageContent() {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<Tab>(searchParams.get("tab") === "saved" ? "saved" : "all");
   const [search, setSearch] = useState("");
   // 게시글 상세 화면의 주제 칩에서 넘어온 경우 해당 주제로 바로 걸러준다.
   const [topic, setTopic] = useState<string | null>(searchParams.get("topic"));

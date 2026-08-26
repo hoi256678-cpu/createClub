@@ -31,7 +31,7 @@ export default function MypagePage() {
                 <div className="mt-0.5 text-[10px] text-white/70">작성한 글</div>
               </Link>
               <Link
-                href="/mypage/saved-posts"
+                href="/community?tab=saved"
                 className="border-r border-white/15 py-3 text-center hover:bg-white/10"
               >
                 <div className="font-extrabold text-white">{savedCount}</div>
