@@ -17,7 +17,7 @@ function firstImageSrc(html: string) {
   return html.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? null;
 }
 
-type Tab = "best" | "all";
+type Tab = "best" | "all" | "saved";
 type Sort = "recent" | "likes" | "comments" | "views";
 
 export default function CommunityPage() {
@@ -47,7 +47,8 @@ function CommunityPageContent() {
   }, []);
 
   const filtered = useMemo(() => {
-    let list = tab === "best" ? pickPopularPosts(posts) : [...posts];
+    let list =
+      tab === "best" ? pickPopularPosts(posts) : tab === "saved" ? posts.filter((p) => p.savedByMe) : [...posts];
     if (topic) {
       list = list.filter((p) => p.tag === topic);
     }
@@ -83,7 +84,7 @@ function CommunityPageContent() {
       <div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex gap-1 rounded-xl border border-border bg-surface p-1">
-            {(["best", "all"] as Tab[]).map((t) => (
+            {(["best", "all", "saved"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -91,7 +92,7 @@ function CommunityPageContent() {
                   tab === t ? "bg-primary-dark text-white" : "text-text-muted"
                 }`}
               >
-                {t === "best" ? "인기글" : "전체글"}
+                {t === "best" ? "인기글" : t === "all" ? "전체글" : "저장한글"}
               </button>
             ))}
           </div>
@@ -129,7 +130,11 @@ function CommunityPageContent() {
           <div className="py-16 text-center text-text-faint">불러오는 중이에요...</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-text-faint">
-            {topic ? `'${topic}' 주제의 글이 아직 없어요` : "해당하는 글이 없어요"}
+            {topic
+              ? `'${topic}' 주제의 글이 아직 없어요`
+              : tab === "saved"
+                ? "아직 저장한 글이 없어요"
+                : "해당하는 글이 없어요"}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
